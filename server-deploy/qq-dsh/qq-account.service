@@ -1,0 +1,18 @@
+[Unit]
+Description=Private QQ account in restricted NapCat container
+Requires=docker.service
+Wants=network-online.target
+After=docker.service network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/docker start --attach qq-dsh-account
+ExecStop=/usr/bin/docker stop --timeout 20 qq-dsh-account
+Restart=always
+RestartSec=10
+TimeoutStopSec=35
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

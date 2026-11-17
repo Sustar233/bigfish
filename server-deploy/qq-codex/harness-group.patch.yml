@@ -1,0 +1,96 @@
+- id: agent-instructions
+  disabled: true
+- id: command-goal
+  disabled: true
+- id: goal-round-driver
+  disabled: true
+- id: hmr
+  disabled: true
+- id: llm-retry
+  disabled: true
+- id: mcp-resources
+  disabled: true
+- id: plugin-manager
+  disabled: true
+- id: ptc-runtime
+  disabled: true
+- id: remote-access
+  disabled: true
+- id: session-title-llm
+  disabled: true
+- id: skill
+  disabled: true
+- id: skill-filesystem
+  disabled: true
+- id: subagent
+  disabled: true
+- id: subagent-fork-in-process
+  disabled: true
+- id: subagent-spawn-in-process
+  disabled: true
+- id: tool-bash
+  disabled: true
+- id: tool-fs
+  disabled: true
+- id: tool-fs-search
+  disabled: true
+- id: tool-goal
+  disabled: true
+- id: tool-jobs
+  disabled: true
+- id: tool-plugin-manager
+  disabled: true
+- id: tool-pwsh
+  disabled: true
+- id: tool-result-pruner
+  disabled: true
+- id: tool-skill
+  disabled: true
+- id: tool-subagent
+  disabled: true
+- id: tool-subagent-control
+  disabled: true
+- id: tool-subagent-fork
+  disabled: true
+- id: tool-subagent-list-agents
+  disabled: true
+- id: tool-todo
+  disabled: true
+- id: tool-web
+  disabled: true
+- id: tool-workflow
+  disabled: true
+- id: tool-working-directory
+  disabled: true
+- id: web
+  disabled: true
+- id: web-deepseek-api
+  disabled: true
+- id: web-fetch-http
+  disabled: true
+- id: web-search-deepseek
+  disabled: true
+- id: workflow-ptc
+  disabled: true
+- id: llm-deepseek
+  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
+  config:
+    apiKeyEnv: DEEPSEEK_API_KEY
+    models:
+    - id: deepseek-v4-flash
+      name: DeepSeek-V4-Flash
+    - id: deepseek-v4-pro
+      name: DeepSeek-V4-Pro
+    - id: deepseek-flash
+      name: DeepSeek V4.1 Flash
+    baseURL: https://api.deepseek.com/anthropic
+- id: system-prompt
+  config:
+    personaPrefix: 你在用户的私人 QQ 三人群里聊天。只生成回复文字，不使用任何工具或执行操作。
+- id: credentials
+  disabled: false
+  config:
+    path: /home/ubuntu/.dsh/.credentials.yaml
+    watch: false
+- id: typert-gateway
+  disabled: true

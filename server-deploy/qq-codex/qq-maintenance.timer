@@ -1,0 +1,8 @@
+[Unit]
+Description=Check QQ archives and health every two minutes
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+Persistent=true
+[Install]
+WantedBy=timers.target

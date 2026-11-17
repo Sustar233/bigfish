@@ -1,0 +1,6 @@
+.private/
+output/
+archive/
+preferences.json
+__pycache__/
+*.pyc

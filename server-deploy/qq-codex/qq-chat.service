@@ -1,0 +1,23 @@
+[Unit]
+Description=Private QQ chat using Codex subscription
+Wants=network-online.target codex-proxy.service qq-account.service
+After=network-online.target codex-proxy.service qq-account.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/qq-codex/bridge
+ExecStart=/usr/bin/python3 /home/ubuntu/qq-codex/bridge/bridge.py
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/qq-codex/bridge/.private /home/ubuntu/.codex /home/ubuntu/qq-dsh/records /home/ubuntu/qq-group/records
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

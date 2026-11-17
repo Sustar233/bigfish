@@ -1,0 +1,15 @@
+[Unit]
+Description=Encrypted private QQ backup
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/qq-codex/bridge
+ExecStart=/usr/bin/python3 /home/ubuntu/qq-codex/bridge/qq_maintenance.py --backup
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/qq-memory /home/ubuntu/qq-dsh/records /home/ubuntu/qq-codex/bridge/.private/records /home/ubuntu/qq-group/records /home/ubuntu/qq-group/.private
+MemoryMax=256M

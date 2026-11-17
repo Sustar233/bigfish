@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Zhihu digest at 08:00 China time
+
+[Timer]
+OnCalendar=*-*-* 08:00:00 Asia/Shanghai
+Persistent=true
+AccuracySec=1min
+Unit=zhihu-daily.service
+
+[Install]
+WantedBy=timers.target
