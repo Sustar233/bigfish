@@ -1,0 +1,7 @@
+{
+  "breaking_daily_cap": 3,
+  "model_daily_budget": 10,
+  "quiet_start": 23,
+  "quiet_end": 8,
+  "timezone": "Asia/Shanghai"
+}

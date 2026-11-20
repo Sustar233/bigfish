@@ -30,3 +30,33 @@ venv/
 .idea/
 Thumbs.db
 .DS_Store
+
+# Local credentials, client state, and generated exports
+.codex/
+.aws/
+auth.json
+credentials.json
+client-token
+id_rsa*
+id_ed25519*
+*.log
+*.jsonl
+*.jsonl.zstd
+.backups/
+backups/
+napcat-runtime/
+*.zip
+*.tgz
+*.tar.gz
+*.7z
+
+# Imported into server-deploy/qq-codex; retain the original local snapshot privately
+/qq-bridge-upgrade/
+
+# Runtime preferences, usage records, network status, and generated images
+/server-maintenance/news/interest_preferences.json
+/server-maintenance/news/interest_preferences.tmp
+/server-maintenance/usage/data/
+/server-maintenance/usage/preview/
+/server-maintenance/network/status.json
+/server-maintenance/images/pig-smoke.png

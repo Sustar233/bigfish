@@ -1,0 +1,128 @@
+{
+  "server": "192.0.2.10",
+  "timezone": "Asia/Shanghai",
+  "features": [
+    {
+      "id": "codex-qq",
+      "name": "小 C 私聊",
+      "root": "/home/ubuntu/qq-codex",
+      "units": [
+        "qq-account.service",
+        "qq-chat.service"
+      ],
+      "config": "/home/ubuntu/qq-codex/bridge/.private/config.json"
+    },
+    {
+      "id": "deepseek-qq",
+      "name": "DeepSeek QQ 与网页后台",
+      "root": "/home/ubuntu/qq-dsh",
+      "units": [
+        "qq-dsh-account.service",
+        "deepseek-harness.service"
+      ],
+      "config": "/home/ubuntu/.dsh"
+    },
+    {
+      "id": "qq-group",
+      "name": "固定三人群聊",
+      "root": "/home/ubuntu/qq-group",
+      "units": [
+        "qq-group.service"
+      ],
+      "config": "/home/ubuntu/qq-group/.private/control.sqlite3"
+    },
+    {
+      "id": "news",
+      "name": "世界新闻提醒",
+      "root": "/home/ubuntu/server-maintenance/news",
+      "units": [
+        "news-watch.service",
+        "news-watch.timer",
+        "news-digest.service",
+        "news-digest.timer"
+      ],
+      "config": "/home/ubuntu/server-maintenance/news/config.json"
+    },
+    {
+      "id": "gold",
+      "name": "Au99.99 金价提醒",
+      "root": "/home/ubuntu/gold-watch",
+      "units": [
+        "gold-price-watch.service",
+        "gold-price-watch.timer"
+      ],
+      "config": "/home/ubuntu/gold-watch/.private/config.json"
+    },
+    {
+      "id": "zhihu",
+      "name": "双语知乎日报",
+      "root": "/home/ubuntu/dailyZhihu",
+      "units": [
+        "zhihu-daily.service",
+        "zhihu-daily.timer"
+      ],
+      "config": "/home/ubuntu/dailyZhihu/.private/server.env"
+    },
+    {
+      "id": "backup",
+      "name": "QQ 档案维护与加密备份",
+      "root": "/home/ubuntu/qq-memory",
+      "units": [
+        "qq-maintenance.service",
+        "qq-maintenance.timer",
+        "qq-backup.service",
+        "qq-backup.timer"
+      ]
+    },
+    {
+      "id": "proxy",
+      "name": "选择性出站代理与计费备线",
+      "root": "/home/ubuntu/.config/codex-proxy",
+      "units": [
+        "codex-proxy.service",
+        "original-proxy-probe.service",
+        "network-route-guard.service",
+        "network-route-guard.timer"
+      ],
+      "config": "/home/ubuntu/.config/codex-proxy/config.json",
+      "docs": "network/README.md",
+      "policy": "/home/ubuntu/server-maintenance/network/policy.json",
+      "status": "/home/ubuntu/server-maintenance/network/status.json"
+    },
+    {
+      "id": "web-edge",
+      "name": "网页入口与认证",
+      "root": "/etc/caddy",
+      "units": [
+        "caddy.service",
+        "dsh-auth-caddy.service"
+      ],
+      "config": "/etc/caddy/Caddyfile"
+    },
+    {
+      "id": "ssh",
+      "name": "远程管理",
+      "root": "/etc/ssh",
+      "units": [
+        "ssh.service"
+      ]
+    },
+    {
+      "id": "token-usage",
+      "name": "每日项目token记录",
+      "root": "/home/ubuntu/server-maintenance/usage",
+      "units": [],
+      "reports": "/home/ubuntu/server-maintenance/usage/data/daily_totals.csv"
+    },
+    {
+      "id": "changsha-weather",
+      "name": "小c长沙早间天气",
+      "root": "/home/ubuntu/server-maintenance/weather",
+      "units": [
+        "changsha-weather.service",
+        "changsha-weather.timer"
+      ],
+      "docs": "weather/README.md"
+    }
+  ]
+}

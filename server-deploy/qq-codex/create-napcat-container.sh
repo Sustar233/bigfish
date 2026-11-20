@@ -9,7 +9,7 @@ QQ_GID=$(id -g ubuntu)
 test "$QQ_UID" != 0
 docker image inspect "$IMAGE" >/dev/null
 docker create --name qq-account --hostname qq-assistant --init \
-    --network bridge --mac-address 02:42:2b:8e:a7:01 \
+    --network bridge --mac-address 02:00:00:00:00:01 \
     --user "$QQ_UID:$QQ_GID" --cap-drop ALL --security-opt no-new-privileges:true \
     --read-only --memory 1g --memory-swap 1g --cpus 1.5 --pids-limit 512 \
     --ulimit core=0:0 --log-driver local --log-opt max-size=10m --log-opt max-file=2 \

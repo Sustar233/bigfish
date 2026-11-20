@@ -1,6 +1,6 @@
 # 腾讯云 Codex 与 VLESS 运行记录
 
-服务器：43.142.167.150，用户 ubuntu。
+服务器：192.0.2.10，用户 ubuntu。
 
 - VLESS 节点：使用本机 v2rayN 当前生效的 VLESS + REALITY 节点；不在此文件保存地址、UUID 或其他节点凭据。
 - Xray：26.11.9，来自 XTLS/Xray-core 官方 GitHub Release；SHA-256 已对照官方 dgst 并在服务器再次校验。

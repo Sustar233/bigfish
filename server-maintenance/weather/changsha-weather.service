@@ -1,0 +1,18 @@
+[Unit]
+Description=Little C Changsha morning commute weather to fixed QQ owner
+After=network-online.target qq-account.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/server-maintenance/weather
+ExecStart=/usr/bin/python3 /home/ubuntu/server-maintenance/weather/weather_morning.py
+Environment=TZ=Asia/Shanghai
+UMask=0077
+TimeoutStartSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/server-maintenance/weather/.private

@@ -6,8 +6,8 @@ import subprocess
 
 config = Path('/etc/caddy/Caddyfile')
 original = config.read_text()
-empty = 'http://43.142.167.150 {\n}'
-configured = '''http://43.142.167.150 {
+empty = 'http://192.0.2.10 {\n}'
+configured = '''http://192.0.2.10 {
 \troot * /srv/personal-page
 \tencode zstd gzip
 \theader X-Content-Type-Options nosniff
@@ -36,7 +36,7 @@ try:
     subprocess.run(['caddy', 'validate', '--config', str(candidate), '--adapter', 'caddyfile'], check=True)
     candidate.replace(config)
     subprocess.run(['systemctl', 'restart', 'caddy'], check=True)
-    subprocess.run(['curl', '--fail', '--silent', '--show-error', '-H', 'Host: 43.142.167.150', 'http://127.0.0.1/', '-o', '/dev/null'], check=True)
+    subprocess.run(['curl', '--fail', '--silent', '--show-error', '-H', 'Host: 192.0.2.10', 'http://127.0.0.1/', '-o', '/dev/null'], check=True)
 except Exception:
     shutil.copy2(backup, config)
     subprocess.run(['systemctl', 'restart', 'caddy'], check=False)

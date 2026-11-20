@@ -37,7 +37,7 @@ class IdleSseTest(unittest.TestCase):
                     with client.request('_events', stream=True) as response:
                         self.assertEqual(response.readline(), b'data: {"test":"after-idle"}\n')
                 finally:
-                    store.close()
+                    store.db.close()
         finally:
             server.shutdown()
             server.server_close()

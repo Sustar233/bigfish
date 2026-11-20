@@ -1,0 +1,22 @@
+[Unit]
+Description=Collect and verify world-news alerts for the fixed QQ owner
+Wants=network-online.target codex-proxy.service
+After=network-online.target codex-proxy.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/server-maintenance/news
+ExecStart=/usr/bin/python3 /home/ubuntu/server-maintenance/news/news_watch.py --mode tick
+Environment=HOME=/home/ubuntu
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/home/ubuntu/server-maintenance/news/.private /home/ubuntu/.codex
+MemoryMax=768M
+CPUQuota=50%
+TimeoutStartSec=8min

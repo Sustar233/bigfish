@@ -2,7 +2,7 @@
 
 当前状态：用户已重新扫码，核验 Codex QQ 身份正确、online=true、聊天桥出现 connected。用户确认两个号都能正常回复，并提出缩短回复与增强日常聊天感的优化要求，已接入 natural-qq-v2。Harness 小号在线。
 
-早前恢复记录：用户先在手机 QQ 完成账号恢复，再重新扫码；get_login_info 验证 1103828665，get_status 在线。qq-account 与 qq-chat 已重新运行；聊天桥出现 connected 和 reply_sent，数据库 sent 从 13 增至 14，用户明确确认收到自动回复。
+早前恢复记录：用户先在手机 QQ 完成账号恢复，再重新扫码；get_login_info 验证 1000000002，get_status 在线。qq-account 与 qq-chat 已重新运行；聊天桥出现 connected 和 reply_sent，数据库 sent 从 13 增至 14，用户明确确认收到自动回复。
 
 ## 10:50 再次掉线
 
@@ -25,8 +25,8 @@
 
 ## 已修复配置
 
-- container-start.sh 增加 NAPCAT_QUICK_ACCOUNT=1103828665，让内部 Worker 继承明确的快捷登录账号。
-- 现有 webui.json 设置 autoLoginAccount=1103828665；prepare_napcat.py 同步该默认配置，避免重新部署时遗漏。
+- container-start.sh 增加 NAPCAT_QUICK_ACCOUNT=1000000002，让内部 Worker 继承明确的快捷登录账号。
+- 现有 webui.json 设置 autoLoginAccount=1000000002；prepare_napcat.py 同步该默认配置，避免重新部署时遗漏。
 - 保留固定 MAC、普通用户和只读容器限制，未修改 Harness QQ 账号。
 - shell 语法检查通过，QQ 服务已重启并重新生成二维码。聊天桥仍运行并等待 QQ 接口恢复。
 
@@ -34,7 +34,7 @@
 
 ## 后续验证
 
-1. 已完成：用户扫码后确认 get_login_info 为 1103828665、get_status 在线。
+1. 已完成：用户扫码后确认 get_login_info 为 1000000002、get_status 在线。
 2. 已完成：聊天桥重新 connected，大号发送新测试消息，用户确认回复正常。
 3. 如需验证内部 Worker 重启，应在没有待发送消息时通过管理接口触发，并观察是否保留账号选择；不要反复重启打断用户会话。
 4. 已更新本记录。为避免刚恢复的账号再次中断，本次未额外触发 Worker 重启；新增配置不能保证平台限制永不再次发生。

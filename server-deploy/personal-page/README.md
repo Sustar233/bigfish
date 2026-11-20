@@ -1,13 +1,13 @@
 # 大肥鱼个人测试页
 
-访问：<http://43.142.167.150/>（公网 HTTP 测试入口，暂无域名与 HTTPS）。
+访问：<http://192.0.2.10/>（公网 HTTP 测试入口，暂无域名与 HTTPS）。
 
 这是独立静态页面，没有依赖、数据库或表单后端。暖白、墨黑、青柠绿视觉，包含响应式布局、原创 SVG 插画、作品概念弹窗、锚点导航与复制链接。介绍与作品为演示文案，联系方式未配置。
 
 - 本地源码：`index.html`
 - 服务器源码：`/home/ubuntu/personal-page/index.html`
 - Caddy 静态目录：`/srv/personal-page`，只发布 `index.html`
-- 入口：`/etc/caddy/Caddyfile` 的 `http://43.142.167.150` 块
+- 入口：`/etc/caddy/Caddyfile` 的 `http://192.0.2.10` 块
 - 首次配置备份：`/etc/caddy/Caddyfile.before-personal-page.20261116T154806Z`
 
 修改页面后，上传本目录的 `index.html` 和 `deploy.py` 到服务器 `/home/ubuntu/personal-page/`，再运行 `sudo python3 /home/ubuntu/personal-page/deploy.py`。脚本仅接受原空 HTTP 块或本页创建的配置，备份配置、验证后发布；Caddy 管理接口已关闭，因此使用服务重启。其他 HTTPS 路由保持原配置。现有 WebUI 管理器日后重写 Caddyfile 时可能覆盖该入口。

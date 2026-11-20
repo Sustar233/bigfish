@@ -21,9 +21,9 @@ from qq_data import Data, TZ
 from datetime import datetime
 
 ROOT = Path('/home/ubuntu/qq-memory')
-ACCOUNTS = {'codex': ('1103828665', Path('/home/ubuntu/qq-codex/bridge/.private/records'),
+ACCOUNTS = {'codex': ('1000000002', Path('/home/ubuntu/qq-codex/bridge/.private/records'),
                        Path('/home/ubuntu/qq-codex/bridge/.private/config.json')),
-            'harness': ('2223525305', Path('/home/ubuntu/qq-dsh/records'),
+            'harness': ('1000000003', Path('/home/ubuntu/qq-dsh/records'),
                         Path('/home/ubuntu/qq-dsh/napcat-runtime/.private/bridge-config.json'))}
 
 
@@ -87,7 +87,7 @@ def collect_harness():
     try:
         root = Path('/home/ubuntu/.dsh/sessions/--home-ubuntu-qq-dsh-workspace--')
         for path in root.rglob('session.v4.jsonl.zstd'):
-            if 'onebot-private-17162047' not in str(path):
+            if 'onebot-private-1000000001' not in str(path):
                 continue
             marker = 'source:'+str(path)
             stamp = str(path.stat().st_mtime_ns)
@@ -131,7 +131,7 @@ def mail(subject, body):
             values[key] = value.strip()
     msg = EmailMessage()
     sender = values.get('SMTP_FROM') or values['SMTP_USER']
-    msg['From'], msg['To'], msg['Subject'] = sender, '17162047@qq.com', subject
+    msg['From'], msg['To'], msg['Subject'] = sender, 'owner@example.com', subject
     msg.set_content(body)
     port = int(values.get('SMTP_PORT', '465'))
     if port != 465:
@@ -211,7 +211,7 @@ def backup():
                 store.close()
         group_root=Path('/home/ubuntu/qq-group/records')
         if (group_root/'archive.sqlite3').exists():
-            store=Data(group_root,'628128804')
+            store=Data(group_root,'1000000004')
             try:
                 store.snapshot(temp/'group.sqlite3')
                 if (group_root/'USER_MEMORY.md').exists():

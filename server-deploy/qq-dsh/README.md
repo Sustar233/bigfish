@@ -1,16 +1,16 @@
 # DeepSeek Harness 私人 QQ 接入
 
-目标账号 2223525305，原 QQ 插件仅允许 17162047 好友私聊；插件的原生群聊保持关闭。2026-11-14 用户另行授权固定三人群 628128804，由独立 qq-group.service 统一调度，Harness 通过禁用工具的 qq-group headless profile 回复；详见 [群聊使用说明](../qq-codex/群聊使用说明.md)。用户选择沿用 Harness 现有 DeepSeek API 模型配置。
+目标账号 1000000003，原 QQ 插件仅允许 1000000001 好友私聊；插件的原生群聊保持关闭。2026-11-14 用户另行授权固定三人群 1000000004，由独立 qq-group.service 统一调度，Harness 通过禁用工具的 qq-group headless profile 回复；详见 [群聊使用说明](../qq-codex/群聊使用说明.md)。用户选择沿用 Harness 现有 DeepSeek API 模型配置。
 
 部署已完成，最终核验时间 2026-11-14 01:51:46（香港／北京时间）。用户已确认收到 Harness 自动回复，QQ 服务重启免扫码恢复已验证，账号服务与 Harness 均 active / enabled。
 
 ## 运行布局
 
-- 服务器：43.142.167.150。
+- 服务器：192.0.2.10。
 - 目录：/home/ubuntu/qq-dsh；QQ 数据：napcat-runtime/qq-data。
 - 容器：qq-dsh-account；服务：qq-dsh-account.service，当前 active / enabled。
 - 复用已校验的 NapCat 4.18.42 镜像；普通用户 1000:1001、根目录只读、移除全部 capabilities、禁止提权；1 GiB 内存及 1.5 核 CPU 上限。
-- 独立固定 MAC：02:42:2b:8e:a7:02。
+- 独立固定 MAC：02:00:00:00:00:02。
 - OneBot HTTP/SSE：127.0.0.1:13101；正向 WS：127.0.0.1:13102；WebUI：127.0.0.1:13180。
 - 随机接口令牌在服务器生成并持久保存，未写入本文。
 
@@ -24,14 +24,14 @@
 完整性记录：/home/ubuntu/qq-dsh/npm-integrity.json。
 安装前 profile 的 package.json、cordis.patch.yml、pnpm-workspace.yaml、pnpm-lock.yaml 已备份到 /home/ubuntu/qq-dsh/backups/profile-web-before-onebot，属私密资料。
 
-web profile 的 bundles 增加 dsh-onebot-qq；cordis.patch.yml 增加顶层 id=dsh-onebot 配置，使用 forward WS 到 13102。adminUsers 和 allowFrom 均仅 17162047；dmPolicy=allowlist；groupPolicy=disabled；allowAllUsers=false；ignoreSelf=true；workspacePath=/home/ubuntu/qq-dsh/workspace。
+web profile 的 bundles 增加 dsh-onebot-qq；cordis.patch.yml 增加顶层 id=dsh-onebot 配置，使用 forward WS 到 13102。adminUsers 和 allowFrom 均仅 1000000001；dmPolicy=allowlist；groupPolicy=disabled；allowAllUsers=false；ignoreSelf=true；workspacePath=/home/ubuntu/qq-dsh/workspace。
 
-实际插件 dmAllowed / groupAllowed 函数的 4 项检查已通过：允许大号，拒绝 Codex 控制的小号 1103828665，拒绝陌生号，拒绝群聊。机器人互聊尚未启用。
+实际插件 dmAllowed / groupAllowed 函数的 4 项检查已通过：允许大号，拒绝 Codex 控制的小号 1000000002，拒绝陌生号，拒绝群聊。机器人互聊尚未启用。
 
 ## 已完成验收
 
-1. get_login_info 确认扫码实际登录 2223525305；get_status 为 online=true / good=true，大号已是好友。
-2. Harness 日志确认 OneBot connected，lifecycle 身份是 2223525305。
+1. get_login_info 确认扫码实际登录 1000000003；get_status 为 online=true / good=true，大号已是好友。
+2. Harness 日志确认 OneBot connected，lifecycle 身份是 1000000003。
 3. 重启 QQ 服务后固定 MAC 保持、免扫码自动恢复。
 4. 大号发送真实测试消息，用户确认收到 Harness 自动回复。用户明确选择沿用现有 DeepSeek API 配置，此账号的模型调用独立于 Codex 额度。
 5. qq-dsh-account.service、deepseek-harness.service 均 active / enabled；原 Codex QQ 及知乎日报定时器仍 active / enabled。
@@ -40,7 +40,7 @@ web profile 的 bundles 增加 dsh-onebot-qq；cordis.patch.yml 增加顶层 id=
 
 ## 使用与维护
 
-用大号 17162047 私聊新号 2223525305 即可。模型切换与工作区等命令可在 QQ 中发送 `/help` 查看插件实际帮助。
+用大号 1000000001 私聊新号 1000000003 即可。模型切换与工作区等命令可在 QQ 中发送 `/help` 查看插件实际帮助。
 
 ```sh
 systemctl is-active qq-dsh-account.service deepseek-harness.service

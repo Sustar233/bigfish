@@ -12,4 +12,4 @@ chmod 700 "$XDG_RUNTIME_DIR"
 Xvfb :1 -screen 0 1080x760x16 +extension GLX +render >/tmp/xvfb.log 2>&1 &
 sleep 2
 cd /app/napcat
-exec dbus-run-session -- /opt/QQ/qq --no-sandbox --disable-gpu -q 2223525305
+exec dbus-run-session -- /opt/QQ/qq --no-sandbox --disable-gpu -q 1000000003

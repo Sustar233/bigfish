@@ -51,18 +51,18 @@ def main():
         'token': onebot_token, 'debug': False, 'reportSelfMessage': False,
     }]}, 'musicSignUrl': '', 'enableLocalFile2Url': False, 'parseMultMsg': False,
         'imageDownloadProxy': ''}
-    for name in ('onebot11.json', 'onebot11_2223525305.json'):
+    for name in ('onebot11.json', 'onebot11_1000000003.json'):
         write_json(config / name, onebot)
     write_json(config / 'webui.json', {'host': '0.0.0.0', 'port': 6099,
                'prefix': '', 'token': webui_token, 'loginRate': 3})
     write_json(private / 'bridge-config.json', {
-        'owner_qq': '17162047', 'bot_qq': '2223525305',
+        'owner_qq': '1000000001', 'bot_qq': '1000000003',
         'onebot_url': 'http://127.0.0.1:13101', 'onebot_token': onebot_token,
     })
     shutil.copyfile(BASE / 'container-start.sh', app / 'container-start.sh')
     (app / 'container-start.sh').chmod(0o500)
     write_json(marker, {'napcat_version': '4.18.42', 'zip_sha256': EXPECTED,
-                       'bot_qq': '2223525305', 'owner_qq': '17162047'})
+                       'bot_qq': '1000000003', 'owner_qq': '1000000001'})
     print('Prepared private configuration; no service has been started.')
 
 

@@ -1,0 +1,21 @@
+[Unit]
+Description=Hourly SGE Au99.99 threshold monitor and fixed-owner QQ alert
+Wants=network-online.target codex-proxy.service
+After=network-online.target codex-proxy.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/gold-watch
+ExecStart=/usr/bin/python3 /home/ubuntu/gold-watch/gold_watch.py
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/home/ubuntu/gold-watch/.private
+TimeoutStartSec=120
+MemoryMax=128M
+CPUQuota=20%

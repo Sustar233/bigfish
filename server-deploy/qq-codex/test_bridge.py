@@ -4,13 +4,13 @@ from pathlib import Path
 from unittest.mock import patch
 import bridge
 
-CONFIG = {'owner_qq': '17162047', 'bot_qq': '1103828665',
+CONFIG = {'owner_qq': '1000000001', 'bot_qq': '1000000002',
           'onebot_url': 'http://127.0.0.1:13001', 'onebot_token': 'test-only'}
 
 
 def event(**changes):
     base = {'post_type': 'message', 'message_type': 'private', 'sub_type': 'friend',
-            'user_id': 17162047, 'self_id': 1103828665, 'message_id': 123, 'time': 1700000000,
+            'user_id': 1000000001, 'self_id': 1000000002, 'message_id': 123, 'time': 1700000000,
             'message': [{'type': 'text', 'data': {'text': '你好'}}]}
     base.update(changes)
     return base
@@ -38,7 +38,7 @@ class BridgeTests(unittest.TestCase):
             self.assertTrue(b.admit(event()))
             self.assertFalse(b.admit(event()))
             self.assertEqual(b.tasks.qsize(), 1)
-            store.close()
+            store.db.close()
 
     def test_history_is_bounded_and_reset_does_not_remove_dedup(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -50,7 +50,7 @@ class BridgeTests(unittest.TestCase):
             store.clear()
             self.assertEqual(store.history(), [])
             self.assertFalse(store.claim('already-seen'))
-            store.close()
+            store.db.close()
 
     def test_reply_destination_and_segments_are_fixed(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -60,9 +60,9 @@ class BridgeTests(unittest.TestCase):
                 b.send('[CQ:at,qq=42]')
                 action, payload = request.call_args.args
                 self.assertEqual(action, 'send_private_msg')
-                self.assertEqual(payload['user_id'], 17162047)
+                self.assertEqual(payload['user_id'], 1000000001)
                 self.assertEqual(payload['message'][0]['type'], 'text')
-            store.close()
+            store.db.close()
 
 
 if __name__ == '__main__':

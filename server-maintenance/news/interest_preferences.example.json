@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "说明": "1为正常权重，越高越优先；0跳过普通新闻。重大事件和更正保留。关键词按字面匹配。反馈由程序同步，勿手动修改游标。",
+  "topic_weights": {
+    "国际政治": 1.0,
+    "战争安全": 1.0,
+    "全球经济": 1.0,
+    "灾害卫生": 1.0,
+    "科技科学": 1.0,
+    "中国及周边": 1.0
+  },
+  "blocked_categories": [],
+  "blocked_keywords": [],
+  "keyword_weights": {},
+  "event_feedback": {},
+  "feedback_cursor": 0,
+  "feedback_history": [],
+  "presentation": {
+    "narrator": "小c",
+    "style": "像朋友口述新闻，自然转述，不堆播音腔",
+    "inline_links": false,
+    "publisher_prefaces": false,
+    "sources_on_request": true
+  }
+}

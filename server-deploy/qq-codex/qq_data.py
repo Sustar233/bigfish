@@ -10,6 +10,7 @@ import time
 import uuid
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
+from chat_context import timestamp
 
 try:
     TZ = ZoneInfo('Asia/Hong_Kong')
@@ -50,6 +51,11 @@ class Data:
     def mark(self, key, status):
         with self.lock, self.db:
             self.db.execute('UPDATE messages SET status=? WHERE event_key=?', (status, key))
+
+    def message_time(self, key):
+        with self.lock:
+            row = self.db.execute('SELECT occurred FROM messages WHERE event_key=?', (key,)).fetchone()
+        return row[0] if row else None
 
     def import_legacy(self, rows):
         # Old rolling history has no timestamps or event IDs. Mark provenance,
@@ -105,10 +111,12 @@ class Data:
                 words.update(part[i:i+2] for i in range(max(1, len(part)-1)))
             return words
         q = tokens(query)
-        rows = self.memory_rows()
+        with self.lock:
+            rows = self.db.execute("SELECT id,content,created FROM memories WHERE state='active'").fetchall()
+        rows = [r for r in rows if not SENSITIVE.search(r[1])]
         scored = sorted(rows, key=lambda r: (len(q & tokens(r[1])), r[0]), reverse=True)
-        chosen = scored[:limit]
-        return '\n'.join(f'[M{r[0]}] {r[1]}' for r in chosen)[:3000]
+        chosen = [r for r in scored if q & tokens(r[1]) or re.search(r'叫我|称呼|名字|我叫|回复|沟通|喜欢|偏好|不喜欢', r[1])][:limit]
+        return '\n'.join(f'[M{r[0]} 记录于{timestamp(r[2])}] {r[1]}' for r in chosen)[:3000]
 
     def search(self, query, limit=8):
         # Literal search prevents SQL wildcard tricks and keeps account stores isolated.
@@ -126,10 +134,12 @@ class Data:
             return ''
         score = '+'.join('CASE WHEN instr(lower(text),?)>0 THEN 1 ELSE 0 END' for _ in words)
         with self.lock:
-            rows = self.db.execute(f'''SELECT id,role,text,({score}) AS relevance FROM messages
+            rows = self.db.execute(f'''SELECT id,role,text,occurred,source,({score}) AS relevance FROM messages
                 WHERE event_key!=? AND text NOT LIKE '/%' AND status IN ('received','sent','legacy','engine_recorded')
                 ORDER BY relevance DESC,id DESC LIMIT ?''', (*words, exclude_key, limit)).fetchall()
-        return '\n'.join(f'[历史#{mid} {role}] {text[:500]}' for mid, role, text, relevance in rows if relevance >= min(2, len(words)))[:2400]
+        return '\n'.join(f'[历史#{mid} {timestamp(None if source == "legacy-unknown-time" else occurred)} {role}] {text[:500]}'
+                         for mid, role, text, occurred, source, relevance in rows
+                         if relevance >= min(2, len(words)) and not SENSITIVE.search(text))[:2400]
 
     def export(self, fmt='md', date=None):
         if fmt not in ('md', 'html', 'jsonl'):

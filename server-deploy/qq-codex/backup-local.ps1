@@ -48,7 +48,7 @@ if ($Mode -eq 'Restore') {
 }
 $identity='C:/Users/83763/.ssh/id_ed25519'
 $knownHosts='C:/Users/83763/Documents/ChatGPT/大肥鱼养殖基地/tencent_known_hosts'
-& scp -q -i $identity -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$knownHosts" 'ubuntu@43.142.167.150:/home/ubuntu/qq-memory/backups/*.qqbak' $backupDirectory
+& scp -q -i $identity -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$knownHosts" 'ubuntu@192.0.2.10:/home/ubuntu/qq-memory/backups/*.qqbak' $backupDirectory
 if ($LASTEXITCODE -ne 0) { throw 'Encrypted backup pull failed.' }
 [IO.File]::WriteAllText((Join-Path $backupDirectory 'last-pull.txt'),[DateTimeOffset]::Now.ToString('o'))
 Write-Output 'Encrypted backups copied locally.'

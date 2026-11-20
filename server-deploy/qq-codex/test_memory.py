@@ -94,7 +94,7 @@ class MemoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             store=bridge.Store(Path(td)/'chat.sqlite3')
             try:
-                b=bridge.Bridge({'owner_qq':'17162047','bot_qq':'1103828665','onebot_url':'http://127.0.0.1:13001','onebot_token':'test'},store)
+                b=bridge.Bridge({'owner_qq':'1000000001','bot_qq':'1000000002','onebot_url':'http://127.0.0.1:13001','onebot_token':'test'},store)
                 store.data.record('one','user','saved')
                 self.assertIn('档案',b.command('/清空','cmd')[0])
                 self.assertEqual(len(store.data.search('saved')),1)
@@ -102,7 +102,7 @@ class MemoryTests(unittest.TestCase):
                 with patch.object(b,'request') as request:
                     b.send_file(path)
                     self.assertEqual(request.call_args.args[0],'upload_private_file')
-                    self.assertEqual(request.call_args.args[1]['user_id'],17162047)
+                    self.assertEqual(request.call_args.args[1]['user_id'],1000000001)
             finally:store.close()
 
     def test_harness_commands_do_not_reset_codex_context(self):
@@ -125,7 +125,7 @@ class MemoryTests(unittest.TestCase):
                 b.command('/记住 群 群里喜欢短回复','cmd')
                 self.assertEqual(store.data.memory_rows(),[])
                 self.assertIn('短回复',b.command('/查看记忆 群','list')[0])
-                data=Data(root,'628128804');data.record('group','user','group-only');data.close()
+                data=Data(root,'1000000004');data.record('group','user','group-only');data.close()
                 _,path=b.command('/导出 群 jsonl','export')
                 self.assertIn('group-only',path.read_text())
                 self.assertEqual(store.data.search('group-only'),[])
