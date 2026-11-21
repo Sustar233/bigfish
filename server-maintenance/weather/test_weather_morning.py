@@ -79,7 +79,7 @@ class WeatherTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             state = w.State(Path(tmp)/'state.db')
             qq = Mock()
-            qq.ready.return_value = True
+            qq.readiness.return_value = 'ready'
             qq.send.side_effect = TimeoutError()
             self.assertEqual(w.deliver(state, NOW, 'preview', qq), 'uncertain')
             self.assertEqual(w.deliver(state, NOW, 'preview', qq), 'already_handled')
@@ -90,10 +90,10 @@ class WeatherTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             state = w.State(Path(tmp)/'state.db')
             qq = Mock()
-            qq.ready.return_value = False
+            qq.readiness.return_value = 'qq_offline'
             self.assertEqual(w.deliver(state, NOW, 'preview', qq), 'queued')
             qq.send.assert_not_called()
-            qq.ready.return_value = True
+            qq.readiness.return_value = 'ready'
             qq.send.return_value = {'message_id': 123}
             self.assertEqual(w.deliver(state, NOW, 'preview', qq), 'sent')
             self.assertEqual(w.deliver(state, NOW, 'preview', qq), 'already_handled')
@@ -108,6 +108,51 @@ class WeatherTests(unittest.TestCase):
             state = w.State(path)
             self.assertEqual(state.get(NOW.date().isoformat()), 'uncertain')
             state.db.close()
+
+    def test_only_old_queued_weather_expires(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = w.State(Path(tmp)/'state.db')
+            try:
+                state.put('2026-11-15', 'sent', NOW, message_id=123)
+                state.put('2026-11-16', 'uncertain', NOW)
+                state.put('2026-11-17', 'queued', NOW, error='qq_not_ready')
+                state.put('2026-11-18', 'queued', NOW, error='qq_not_ready')
+                self.assertEqual(state.expire_pending(NOW), 1)
+                self.assertEqual(state.expire_pending(NOW), 0)
+                self.assertEqual(state.get('2026-11-15'), 'sent')
+                self.assertEqual(state.get('2026-11-16'), 'uncertain')
+                self.assertEqual(state.get('2026-11-17'), 'expired')
+                self.assertEqual(state.get('2026-11-18'), 'queued')
+            finally:
+                state.db.close()
+
+    def test_deadline_alert_and_uncertainty_are_deduplicated_after_reopen(self):
+        for prior, mail_error, outcome, calls in (
+            ('queued', None, 'alert_sent', 1), ('sent', None, 'confirmed', 0),
+            ('uncertain', TimeoutError(), 'alert_unconfirmed', 1), (None, None, 'alert_sent', 1)):
+            with self.subTest(prior=prior), tempfile.TemporaryDirectory() as tmp:
+                db = Path(tmp)/'state.db'
+                notify = Mock(side_effect=mail_error)
+                for attempt in range(2):
+                    state = w.State(db)
+                    try:
+                        if not attempt and prior:
+                            state.put(NOW.date().isoformat(), prior, NOW, message_id='123' if prior == 'sent' else None)
+                        self.assertEqual(w.check_deadline(state, NOW.replace(hour=8, minute=25), notify), outcome)
+                        if prior == 'queued':
+                            self.assertEqual(state.get(NOW.date().isoformat()), 'expired')
+                    finally:
+                        state.db.close()
+                self.assertEqual(notify.call_count, calls)
+
+    def test_qq_preflight_reasons(self):
+        qq = object.__new__(w.WeatherQQ)
+        for status, identity, reason in [
+                ({'online': False}, w.BOT, 'qq_offline'), ({'online': True}, w.BOT, 'qq_degraded'),
+                ({'online': True, 'good': True}, 'wrong', 'qq_account_mismatch'),
+                ({'online': True, 'good': True}, w.BOT, 'ready')]:
+            qq.request = Mock(side_effect=[status, {'user_id': identity}])
+            self.assertEqual(qq.readiness(), reason)
 
 
 if __name__ == '__main__':

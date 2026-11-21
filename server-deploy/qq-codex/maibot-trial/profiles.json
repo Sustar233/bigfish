@@ -1,0 +1,25 @@
+{
+  "revision": "maibot-style-trial-20261121-v2",
+  "scope": "adapted style fields; existing QQ controllers and personas",
+  "upstream_commit": "edf42446f123149c57fc79765dd5a8b004b8524c",
+  "profiles": {
+    "codex": {
+      "file": "codex-style.md",
+      "sha256": "578bbf7bfe2084ecb8d556fb191f05d575848ad2516617c06dd46134bcd97044",
+      "upstream_preset": "preset-1"
+    },
+    "harness": {
+      "file": "harness-style.md",
+      "sha256": "829e49e001065a3d7fb23673d06cfa42a72fd35d6b2ee19cd52ce35ccbed9a09",
+      "upstream_preset": "preset-2"
+    }
+  },
+  "excluded": [
+    "upstream identity/age/gender",
+    "autonomous tools",
+    "aggression/profanity",
+    "deliberate factual omissions",
+    "full MaiBot planner and memory runtime"
+  ],
+  "reply_templates": "retained as upstream reference; not installed as runtime templates"
+}

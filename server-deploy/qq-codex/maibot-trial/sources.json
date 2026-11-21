@@ -1,0 +1,36 @@
+{
+  "repository": "https://github.com/Mai-with-u/MaiBot",
+  "commit": "edf42446f123149c57fc79765dd5a8b004b8524c",
+  "files": [
+    {
+      "path": "dashboard/src/routes/setup/personalityPresets.ts",
+      "sha256": "13b3bf0033b7f6abe603c29f04d2afcbc2a2dd585192032fa36181111394abca",
+      "git_blob": "e4562814aa05b8f9b9ecb926f5a85dcb74c41893"
+    },
+    {
+      "path": "prompts/zh-CN/main/reply/private/reply_private_system.prompt",
+      "sha256": "356cbdf9794c0ada526afebf204531c5109c239f42423a65e648094f67b6d927",
+      "git_blob": "93a58179257140545b30a2ae276331282c63bc9a"
+    },
+    {
+      "path": "prompts/zh-CN/main/reply/private/reply_private.prompt",
+      "sha256": "e560f019f1abab284958c46b161054fc34e6d78db1d8d63eaac1c1057359d4ce",
+      "git_blob": "bbc3d1bc8e8ae27f6d9a14bbcfde9ee984d5d2b5"
+    },
+    {
+      "path": "prompts/zh-CN/main/reply/group/reply_group_system.prompt",
+      "sha256": "356cbdf9794c0ada526afebf204531c5109c239f42423a65e648094f67b6d927",
+      "git_blob": "93a58179257140545b30a2ae276331282c63bc9a"
+    },
+    {
+      "path": "prompts/zh-CN/main/reply/group/reply_group.prompt",
+      "sha256": "450cd25d61fe1809d793fcf95b9b42d969ae71c78651df3234df41cb08694d11",
+      "git_blob": "1676523b48610881d26d86548ce95a8e472472dd"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "git_blob": "f288702d2fa16d3cdf0035b15a9fcbc552cd88e7"
+    }
+  ]
+}

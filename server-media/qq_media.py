@@ -75,8 +75,8 @@ class QQMedia:
             if arg in modes:
                 self.settings['voice_mode'] = modes[arg]
                 self.save()
-                label = {'auto': '你发语音，我就附一条语音回复；文字来信仍用文字。',
-                         'on': '语音回复已开启，我会在文字后附上语音。',
+                label = {'auto': '你发语音我就用语音回，文字来信就打字。',
+                         'on': '好，我用语音回复。',
                          'off': '好，日常回复切回文字；你发来的语音仍然会听。'}
                 return {'reply': label[modes[arg]], 'quiet': True}
             if arg == '测试':
@@ -147,12 +147,12 @@ class QQMedia:
             wants_voice(user_text, voice_input, self.settings['voice_mode']))
         if voice:
             try:
-                result = self.send_audio(self.synthesize(spoken_text(reply)))
+                raw = self.synthesize(reply)
+            except Exception:
+                self.request('send_private_msg', {'user_id': self.owner, 'message': [{'type': 'text', 'data': {'text': reply}}]})
+            else:
+                result = self.send_audio(raw)
                 sent.append({'kind': 'voice', 'message_id': (result or {}).get('message_id')})
-                print(json.dumps({'event': 'voice_sent', 'message_id': (result or {}).get('message_id')}), flush=True)
-            except Exception as exc:
-                print(json.dumps({'event': 'voice_failed', 'error_type': type(exc).__name__}), flush=True)
-                self.notify('嗓子这会儿没接上，先看上面的文字回复。')
         sticker = choices.get('sticker', 'none')
         explicit = choices.get('explicit_sticker') or bool(re.search(r'表情包|发.{0,4}表情|来.{0,4}表情', user_text))
         allowed = self.settings['stickers_enabled'] or choices.get('explicit_sticker')

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
+import { registerPrivateDaily } from './private-daily.mjs';
 
 export const name = 'dafeiyu-codex';
 export const inject = ['tools', 'systemPrompt'];
@@ -120,6 +121,7 @@ export async function dispatch(args, exec, dependencies = {}) {
 export async function apply(ctx) {
   // Resolve exactly the dependencies shipped with this deployed Harness.
   const { defineTool } = await import('@deepseek-ai/dsh-tools');
+  registerPrivateDaily(ctx, defineTool, authorize, OWNER);
   ctx.tools.register(defineTool({
     name: 'server_codex',
     description: '本人QQ私聊专用：委托服务器Codex编写、分析、验证代码或只读检查。仅在用户明确要求实际任务时调用。run提交，status查询，cancel取消；长任务自动回传。普通闲聊不要调用。',

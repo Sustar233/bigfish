@@ -1,5 +1,6 @@
 """Owner-only QQ image jobs using Codex's built-in image generation, no API fallback."""
 import base64
+from gif_output import wants_gif, storyboard_prompt, encode_storyboard, validate_gif, deliver_gif
 from contextlib import contextmanager
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -24,27 +25,21 @@ ACCOUNTS = {
 }
 
 
-def load_accounts():
+from role_registry import roles_from, check_binding
+
+
+def load_roles():
     path = PRIVATE / 'accounts.json'
-    if not path.exists():
-        return OWNER, ACCOUNTS  # Offline source/tests use sample identities only.
-    data = json.loads(path.read_text())
-    trusted = {13001: '/home/ubuntu/qq-codex/bridge/.private/config.json',
-               13101: '/home/ubuntu/qq-dsh/napcat-runtime/.private/bridge-config.json'}
-    owner = str(data['owner'])
-    accounts = {}
-    if not owner.isdigit():
-        raise ValueError('invalid_account_config')
-    for bot, item in data['accounts'].items():
-        if not bot.isdigit() or trusted.get(item['port']) != item['config']:
-            raise ValueError('invalid_account_config')
-        accounts[bot] = (item['name'], item['config'], item['port'])
-    if len(accounts) != 2:
-        raise ValueError('invalid_account_config')
-    return owner, accounts
+    if path.exists():
+        data = json.loads(path.read_text())
+    else:
+        data = {'owner': OWNER, 'accounts': {bot: {'name': name, 'config': cfg, 'port': port}
+                for bot, (name, cfg, port) in ACCOUNTS.items()}}
+    return roles_from(data)
 
 
-OWNER, ACCOUNTS = load_accounts()
+OWNER, ROLES = load_roles()
+ACCOUNTS = {bot: (r.name, str(r.config), r.port) for bot,r in ROLES.items()}
 GENERATED = Path('/home/ubuntu/.codex/generated_images')
 MAX_IMAGE = 12 * 1024 * 1024
 MAX_INPUTS = 5
@@ -73,6 +68,9 @@ def image_bytes(raw):
         return 'jpg'
     if raw.startswith(b'RIFF') and raw[8:12] == b'WEBP':
         return 'webp'
+    if raw.startswith((b'GIF87a', b'GIF89a')):
+        validate_gif(raw)
+        return 'gif'
     raise ValueError('invalid_image_type')
 
 
@@ -224,11 +222,9 @@ class Service:
             if count >= 4:
                 raise ValueError('busy')
             now = time.time()
-            db.execute('''INSERT INTO jobs
-                (id,bot,event_key,prompt,status,created,updated,kind,source_message_id)
-                VALUES (?,?,?,?,?,?,?,?,?)''',
-                (jobid, bot, event_key, prompt.strip(), 'queued', now, now, kind,
-                 str(message_id) if kind == 'edit' else None))
+            from image_batch import enqueue
+            enqueue(db, jobid, bot, event_key, prompt.strip(), now, kind,
+                    str(message_id) if kind == 'edit' else None)
         self.wake.set()
         return {'id': jobid, 'status': 'queued', 'duplicate': False}
 
@@ -250,6 +246,8 @@ class Service:
     def request(self, bot, action, data):
         _, path, port = ACCOUNTS[bot]
         config = json.loads(Path(path).read_text())
+        if ROLES[bot].handles_owner:
+            check_binding(ROLES[bot], config, bot, OWNER)
         request = urllib.request.Request(f'http://127.0.0.1:{port}/{action}',
             data=json.dumps(data).encode(), headers={'Authorization': 'Bearer ' + config['onebot_token'],
             'Content-Type': 'application/json'})
@@ -288,7 +286,7 @@ class Service:
         else:
             # Fixed, inspected Docker bind mounts. Never fetch a URL or read a
             # path from the user's text/segment. Only NapCat's resolved image cache.
-            runtime = Path('/home/ubuntu') / ('qq-codex' if ACCOUNTS[bot][2] == 13001 else 'qq-dsh') / 'napcat-runtime'
+            runtime = ROLES[bot].runtime
             native = PurePosixPath(info.get('file', ''))
             qq = PurePosixPath('/app/.config/QQ')
             cache = PurePosixPath('/app/napcat/cache')
@@ -317,7 +315,7 @@ class Service:
     def edit_inputs(self, job, folder):
         message = self.request(job['bot'], 'get_msg', {'message_id': job['source_message_id']})
         if (str(message.get('self_id')) != job['bot']
-                or str((message.get('sender') or {}).get('user_id')) != OWNER
+                or str((message.get('sender') or {}).get('user_id')) != getattr(self, 'user', OWNER)
                 or message.get('message_type') != 'private' or message.get('sub_type') != 'friend'
                 or str(message.get('message_id')) != job['source_message_id']):
             raise RuntimeError('attachment')
@@ -366,14 +364,18 @@ class Service:
                     self.ready(job['bot'])
                 except Exception:
                     raise RuntimeError('offline') from None
+                animated = wants_gif(job['prompt'])
+                render_prompt = storyboard_prompt(job['prompt']) if animated else job['prompt']
                 if job['kind'] == 'edit':
                     try:
                         inputs = self.edit_inputs(job, folder)
                     except Exception:
                         raise RuntimeError('attachment') from None
-                    raw = self.generator(job['prompt'], str(folder), inputs=inputs)
+                    raw = self.generator(render_prompt, str(folder), inputs=inputs)
                 else:
-                    raw = self.generator(job['prompt'], str(folder))
+                    raw = self.generator(render_prompt, str(folder))
+                if animated:
+                    raw = encode_storyboard(raw)
                 suffix = image_bytes(raw)
                 path = folder / ('image.' + suffix)
                 path.write_bytes(raw)
@@ -396,12 +398,17 @@ class Service:
         self.mark(job['id'], 'sending')
         # A timeout may mean QQ already accepted the image. Never blindly resend it.
         try:
-            result = self.request(job['bot'], 'send_private_msg', {'user_id': int(OWNER),
-                'message': [{'type': 'image', 'data': {'file': 'base64://' + base64.b64encode(raw).decode()}}]})
-            if result.get('message_id') is None:
+            if raw.startswith((b'GIF87a', b'GIF89a')):
+                result = deliver_gif(self.request, job['bot'], OWNER, job['id'], raw)
+                receipt = result.get('file_id') or result.get('message_id')
+            else:
+                result = self.request(job['bot'], 'send_private_msg', {'user_id': int(OWNER),
+                    'message': [{'type': 'image', 'data': {'file': 'base64://' + base64.b64encode(raw).decode()}}]})
+                receipt = result.get('message_id')
+            if receipt is None:
                 raise RuntimeError('missing_receipt')
-            self.mark(job['id'], 'sent', message_id=str(result['message_id']))
-            log('image_sent', job=job['id'], bot=job['bot'], message_id=result['message_id'])
+            self.mark(job['id'], 'sent', message_id=str(receipt))
+            log('image_sent', job=job['id'], bot=job['bot'], message_id=receipt)
         except Exception:
             self.mark(job['id'], 'uncertain', error='delivery_uncertain')
             log('image_delivery_uncertain', job=job['id'])
@@ -467,6 +474,8 @@ def main():
     if len(token) < 32:
         raise ValueError('missing_client_token')
     service = Service()
+    from friend_chat import start
+    start(service, sys.modules[__name__])
     threading.Thread(target=service.work, daemon=True).start()
     server = ThreadingHTTPServer(('127.0.0.1', 13210), handler(service, token))
     log('image_service_ready')

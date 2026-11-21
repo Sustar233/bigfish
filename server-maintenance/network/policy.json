@@ -1,5 +1,5 @@
 {
-  "daily_backup_limit_bytes": 419430400,
+  "daily_backup_limit_bytes": 1073741824,
   "stop_margin_bytes": 2097152,
   "scope": "explicit domain allowlist only; all unmatched traffic DIRECT",
   "billing_note": "Xray outbound payload bytes; excludes transport overhead. Timer guard is not a provider hard quota."

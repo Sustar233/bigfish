@@ -1,5 +1,7 @@
 # 服务器功能与维护总目录
 
+小c快速重登（本机）：`pwsh -NoProfile -File ./server-maintenance/smallc-login.ps1`；扫码确认后加 `-Mode Verify -WaitSeconds 15`。直接检查小c，离线等待扫码时主动刷新并保存新二维码到本机私密目录；在线时保持登录。工作区 `AGENTS.md` 已登记优先使用该入口，细节见 `CODEX-MAINTENANCE.md`。
+
 维护入口：`/home/ubuntu/server-maintenance/README.md`。服务器 `192.0.2.10`，日常用户 `ubuntu`，统一使用北京时间 `Asia/Shanghai`。
 
 本文件归纳所有已知业务功能。现有程序保留实际部署路径，通过总目录统一查找；不要直接移动运行中的项目。`services.json` 是机器可读索引，`status.py` 是只读状态检查，不输出凭据或聊天正文。
@@ -176,7 +178,7 @@ Codex and QQ maintenance scope / quota query: `CODEX-MAINTENANCE.md`.
 
 小c长沙天气：每天北京时间06:00，关注08:30–10:00及18:00–19:00通勤降水、气温和空气模型估算。详见 weather/README.md。所有文字、语音和主动通知采用口语化人设，见 weather/CHAT-STYLE-OVERRIDE.md。
 
-选择性代理和计费备线：见 [network/README.md](network/README.md)。默认直连，必要域名才走备线，原线路恢复自动切回；每日默认300 MiB保护阈值，状态见 network/status.json。
+选择性代理和计费备线见 [network/README.md](network/README.md)。默认直连，必要域名才走备线，原线路恢复自动切回。每日备线保护阈值为 1 GiB，状态见 `network/status.json`。
 2026-11-18新闻表达优化：内部N编号仅用于后台定位，日常快报不显示；使用口语摘要，可自然询问刚才那条新闻的来源或说这条新闻少推这类。旧编号查询仍兼容。
 
 

@@ -13,7 +13,7 @@ import urllib.request
 from zoneinfo import ZoneInfo
 
 sys.path.insert(0, '/home/ubuntu/gold-watch')
-from gold_watch import QQ
+from gold_watch import BOT, QQ
 
 ROOT = Path(__file__).resolve().parent
 TZ = ZoneInfo('Asia/Shanghai')
@@ -180,6 +180,8 @@ class State:
         self.db = sqlite3.connect(path)
         self.db.execute('CREATE TABLE IF NOT EXISTS deliveries(day TEXT PRIMARY KEY,status TEXT,'
                         'updated TEXT,message_id TEXT,error TEXT)')
+        self.db.execute('CREATE TABLE IF NOT EXISTS forecasts(day TEXT PRIMARY KEY, updated TEXT, body TEXT)')
+        self.db.execute('CREATE TABLE IF NOT EXISTS alerts(day TEXT PRIMARY KEY, status TEXT)')
         # An interrupted in-flight send may already have reached QQ. Never resend it blindly.
         with self.db:
             self.db.execute("UPDATE deliveries SET status='uncertain',error='interrupted_send' WHERE status='sending'")
@@ -193,16 +195,68 @@ class State:
             self.db.execute('INSERT OR REPLACE INTO deliveries VALUES(?,?,?,?,?)',
                             (day, status, now.isoformat(), str(message_id) if message_id is not None else None, error))
 
+    def expire_pending(self, now):
+        with self.db:
+            return self.db.execute(
+                "UPDATE deliveries SET status='expired', updated=? WHERE status='queued' AND day<?",
+                (now.isoformat(), now.date().isoformat())).rowcount
+
+
+class WeatherQQ(QQ):
+    def readiness(self):
+        status = self.request('get_status', {})
+        if status.get('online') is not True:
+            return 'qq_offline'
+        if status.get('good') is not True:
+            return 'qq_degraded'
+        identity = self.request('get_login_info', {})
+        if str(identity.get('user_id')) != BOT:
+            return 'qq_account_mismatch'
+        return 'ready'
+
+
+def send_weather_alert(subject, body):
+    sys.path.insert(0, '/home/ubuntu/qq-codex/bridge')
+    from qq_maintenance import mail
+    mail(subject, body)
+
+
+def check_deadline(state, now, notify=send_weather_alert):
+    day = now.date().isoformat()
+    row = state.db.execute('SELECT status,error,message_id FROM deliveries WHERE day=?', (day,)).fetchone()
+    if row and row[0] == 'sent' and row[2]:
+        return 'confirmed'
+    with state.db:
+        if row and row[0] == 'queued':
+            state.db.execute("UPDATE deliveries SET status='expired',updated=? WHERE day=?", (now.isoformat(), day))
+        reserved = state.db.execute("INSERT OR IGNORE INTO alerts VALUES(?, 'attempted')", (day,)).rowcount
+    if not reserved:
+        previous = state.db.execute('SELECT status FROM alerts WHERE day=?', (day,)).fetchone()[0]
+        return 'alert_sent' if previous == 'sent' else 'alert_unconfirmed'
+    reasons = {'qq_offline': 'QQ 离线', 'qq_degraded': 'QQ 接口状态异常',
+               'qq_account_mismatch': 'QQ 登录账号与配置不符', 'qq_preflight_failed': 'QQ 状态查询失败',
+               'send_outcome_uncertain_no_retry': 'QQ 发送结果待核对', 'interrupted_send': '发送过程中断'}
+    reason = reasons.get(row[1], '采集或投递未完成') if row else '当日没有执行记录'
+    try:
+        notify('长沙天气早报未取得 QQ 回执', f'{day} 08:20 的早间投递窗口已结束。{reason}。')
+    except Exception as exc:
+        print(json.dumps({'status': 'alert_unconfirmed', 'error_type': type(exc).__name__}))
+        return 'alert_unconfirmed'
+    with state.db:
+        state.db.execute("UPDATE alerts SET status='sent' WHERE day=?", (day,))
+    return 'alert_sent'
+
 
 def deliver(state, now, text, qq):
     day = now.date().isoformat()
     if state.get(day) in ('sent', 'uncertain', 'sending'):
         return 'already_handled'
     try:
-        if not qq.ready():
-            raise RuntimeError('qq_offline')
+        reason = qq.readiness()
     except Exception:
-        state.put(day, 'queued', now, error='qq_not_ready')
+        reason = 'qq_preflight_failed'
+    if reason != 'ready':
+        state.put(day, 'queued', now, error=reason)
         return 'queued'
     state.put(day, 'sending', now)
     try:
@@ -254,6 +308,13 @@ def main():
                 print(json.dumps({'deliveries': state.db.execute(
                     'SELECT day,status,updated,message_id,error FROM deliveries ORDER BY day DESC LIMIT 7').fetchall()}))
                 return 0
+            expired = state.expire_pending(now)
+            if expired:
+                print(json.dumps({'status': 'expired_old_deliveries', 'count': expired}))
+            if (now.hour, now.minute) >= (8, 25):
+                outcome = check_deadline(state, now)
+                print(json.dumps({'status': outcome}))
+                return int(outcome == 'alert_unconfirmed')
             # Late retries are useful only before the morning commute; never send yesterday's weather.
             if not (6 <= now.hour < 8 or (now.hour == 8 and now.minute <= 20)):
                 print('{"status":"outside_delivery_window"}')
@@ -267,14 +328,20 @@ def main():
                 state.put(now.date().isoformat(), 'queued', now, error=type(exc).__name__)
                 print(json.dumps({'status': 'source_unavailable', 'error_type': type(exc).__name__}))
                 return 1
+            with state.db:
+                state.db.execute('INSERT OR REPLACE INTO forecasts VALUES(?,?,?)',
+                                 (now.date().isoformat(), now.isoformat(), text))
+                state.db.execute('DELETE FROM forecasts WHERE day<?',
+                                 ((now.date()-timedelta(days=7)).isoformat(),))
             try:
-                qq = QQ()
-                outcome = deliver(state, now, text, qq)
+                qq = WeatherQQ()
             except Exception as exc:
                 state.put(now.date().isoformat(), 'queued', now, error=type(exc).__name__)
-                outcome = 'queued'
+                print(json.dumps({'status': 'qq_configuration_error', 'error_type': type(exc).__name__}))
+                return 1
+            outcome = deliver(state, now, text, qq)
             print(json.dumps({'status': outcome}))
-            return 1 if outcome in ('queued', 'uncertain') else 0
+            return 1 if outcome == 'uncertain' else 0
         finally:
             state.db.close()
 

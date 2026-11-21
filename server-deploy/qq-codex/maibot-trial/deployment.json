@@ -1,0 +1,28 @@
+{
+  "revision": "maibot-style-trial-20261121-v2",
+  "checked_at": "2026-11-20T18:09:29.410089+00:00",
+  "services": {
+    "qq-chat": "active",
+    "qq-group": "active",
+    "deepseek-harness": "active",
+    "qq-account": "active",
+    "qq-dsh-account": "active"
+  },
+  "qq": {
+    "codex": {
+      "error": "ConnectionResetError"
+    },
+    "harness": {
+      "online": true,
+      "good": true
+    }
+  },
+  "simulation_calls": 8,
+  "simulation_successes": 8,
+  "task_facts_preserved": true,
+  "baseline_backup": "/home/ubuntu/qq-style-trial/maibot-20261121/backup-20261120T180124Z",
+  "upstream_commit": "edf42446f123149c57fc79765dd5a8b004b8524c",
+  "scope": "style adapter, not full MaiBot runtime",
+  "qq_test_messages_sent": 0,
+  "current_files_hash_verified": true
+}

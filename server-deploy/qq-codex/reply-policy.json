@@ -1,0 +1,5 @@
+{
+  "split_at_characters": 120,
+  "keep_whole_if_contains": ["```", "http"],
+  "break_pattern": "[。！？!?；;\n]+[”」]?|，"
+}

@@ -1,0 +1,40 @@
+[
+  {
+    "provider": "codex",
+    "case": "joke",
+    "reply": "这班你倒是外包得挺自然。有什么活，先拿来看看。",
+    "seconds": 29.0
+  },
+  {
+    "provider": "codex",
+    "case": "chat",
+    "reply": "嗯，随便聊两句。想吐槽就吐槽，话说一半拐到别处也行。",
+    "seconds": 24.8
+  },
+  {
+    "provider": "codex",
+    "case": "task",
+    "reply": "今天处理了3个登录问题，另有2个待排查，明天补做回归测试。",
+    "seconds": 12.1,
+    "facts_preserved": true
+  },
+  {
+    "provider": "harness",
+    "case": "joke",
+    "reply": "你连班都想打包甩过来啊。",
+    "seconds": 1.9
+  },
+  {
+    "provider": "harness",
+    "case": "chat",
+    "reply": "嗯，那就先不列。烦的是哪件事，说两句也行，不想说就随便扯点别的。",
+    "seconds": 2.3
+  },
+  {
+    "provider": "harness",
+    "case": "task",
+    "reply": "今天处理了 3 个登录问题，还有 2 个待排查，明天补回归测试。",
+    "seconds": 2.2,
+    "facts_preserved": true
+  }
+]

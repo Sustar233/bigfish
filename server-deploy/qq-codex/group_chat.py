@@ -11,6 +11,7 @@ import threading
 import time
 
 from bridge import Bridge, model_reply, log
+from qzone_group import handle_group_qzone
 from qq_data import Data, approved_persona, SENSITIVE
 from chat_context import prepare_history, timestamp, wants_archive
 
@@ -180,6 +181,8 @@ class Room:
         self.data.record(key, 'user', text, occurred=occurred,
             payload={'group_id': GROUP, 'sender': OWNER, 'mentions': mentions}, source='qq-group')
         cmd = text.strip().strip('。！!').lower()
+        if handle_group_qzone(self, key, text, mentions, OWNER, GROUP, ACCOUNTS, PRIVATE):
+            return True
         if cmd in ('暂停群聊', '/暂停群聊', '先别聊了', '你们先别聊了'):
             self.control.set('paused', '1')
             self.control.set('epoch',int(self.control.get('epoch'))+1)
@@ -193,7 +196,7 @@ class Room:
             self.notice('在，继续。')
             return True
         if cmd in ('/群帮助', '/群状态'):
-            self.notice('不用@，普通群聊大肥鱼优先接话，小c按原节奏参与；点名时由被点名的一位回复。连续消息合并处理，每次最多两条，机器人消息不续开新轮。暂停群聊／继续群聊 可切换。合计上限6次/分钟、60次/小时、300次/滚动24小时；档案与记忆管理请私聊Codex。当前'+('暂停中。' if self.control.get('paused') == '1' else '开启。'))
+            self.notice('不用@，普通群聊大肥鱼优先接话，小c按原节奏参与；点名时由被点名的一位回复。连续消息合并处理，每次最多两条，机器人消息不续开新轮。暂停群聊／继续群聊 可切换。合计上限6次/分钟、60次/小时、300次/滚动24小时；/空间点赞 或“你们给我最新一条说说点赞”可让两位点赞，点名则只由对应账号执行；/空间状态 查看结果；档案与记忆管理请私聊Codex。当前'+('暂停中。' if self.control.get('paused') == '1' else '开启。'))
             return True
         if cmd in ('/群清空', '/new'):
             self.control.set('epoch',int(self.control.get('epoch'))+1)
@@ -332,10 +335,14 @@ class Room:
 
     def listen(self, label):
         endpoint = self.endpoints[label]
+        retry_delay = 5
         while not self.stop.is_set():
+            connected_at = None
+            failure = 'stream_closed'
             try:
                 endpoint.verify_account()
                 with endpoint.request('_events',stream=True) as response:
+                    connected_at = time.monotonic()
                     log('group_feed_connected',bot=label)
                     data=[]
                     while not self.stop.is_set():
@@ -351,8 +358,13 @@ class Room:
                             except (ValueError,TypeError):log('group_invalid_event')
                             data=[]
             except Exception as exc:
-                log('group_feed_waiting',bot=label,error_type=type(exc).__name__)
-            self.stop.wait(5)
+                failure = type(exc).__name__
+            if connected_at is not None and time.monotonic() - connected_at >= 30:
+                retry_delay = 5
+            if not self.stop.is_set():
+                log('group_feed_waiting', bot=label, error_type=failure, retry_seconds=retry_delay)
+            self.stop.wait(retry_delay)
+            retry_delay = min(60, retry_delay * 2)
 
     def close(self):
         self.control.close()

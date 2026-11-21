@@ -66,6 +66,9 @@ class Data:
 
     def add_memory(self, text, source, state='active', kind='explicit'):
         text = text.strip()
+        from heart_memory import EXCLUDE, OPERATIONS
+        if EXCLUDE.search(text) or OPERATIONS.search(text):
+            raise ValueError('工作、绘图、运维及敏感信息不写入长期记忆。')
         if not text or len(text) > 2000:
             raise ValueError('记忆内容应为 1–2000 字。')
         if SENSITIVE.search(text):

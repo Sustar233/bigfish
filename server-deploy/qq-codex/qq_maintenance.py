@@ -141,31 +141,51 @@ def mail(subject, body):
         smtp.send_message(msg)
 
 
+def onebot_health(label, account):
+    try:
+        status = api(label, 'get_status')
+        if status.get('online') is not True:
+            return 'offline'
+        if status.get('good') is not True:
+            return 'degraded'
+        if str(api(label, 'get_login_info').get('user_id')) != str(account):
+            return 'account_mismatch'
+    except Exception:
+        return 'unavailable'
+    return 'ready'
+
+
 def health():
     path = ROOT/'health.json'
     state = json.loads(path.read_text()) if path.exists() else {}
     now = time.time()
     for label, (account, _, _) in ACCOUNTS.items():
-        try:
-            online = bool(api(label, 'get_status').get('online'))
-        except Exception:
-            online = False
+        onebot_state = onebot_health(label, account)
+        online = onebot_state == 'ready'
         old = state.get(label, {})
         failures = 0 if online else old.get('failures', 0)+1
         sent = old.get('alerted_at', 0)
         changed = old.get('alert_active', False)
         should_send = (not online and failures >= 2 and now-sent > 6*3600) or (online and changed)
-        entry = {'online': online, 'failures': failures, 'checked_at': now,
+        entry = {'online': online, 'onebot_state': onebot_state, 'failures': failures, 'checked_at': now,
                  'alerted_at': sent, 'alert_active': changed}
+        if should_send and label == 'codex' and onebot_health('harness', ACCOUNTS['harness'][0]) != 'ready':
+            entry['qq_notification_pending'] = True
+            should_send = False
         if should_send:
-            # Reserve before SMTP: an uncertain SMTP outcome must not spam.
+            entry['qq_notification_pending'] = False
+            # Reserve before delivery: an uncertain outcome must not spam.
             entry.update(alerted_at=now, alert_active=not online)
             state[label] = entry
             path.write_text(json.dumps(state))
             try:
-                mail(f'[QQ 助手{"已恢复" if online else "离线"}] {label} {account}',
-                    f'账号 {account}：'+('已恢复在线。' if online else '连续两次检查不可用，可能需要手机 QQ 重新验证。')+
-                    '\n这里只报告服务状态，不附聊天正文、二维码或令牌。')
+                if label == 'codex':
+                    from smallc_health_notice import notify
+                    notify(api, online)
+                else:
+                    mail(f'[QQ 助手{"已恢复" if online else "离线"}] {label} {account}',
+                        f'账号 {account}：'+('已恢复在线。' if online else '连续两次检查不可用，可能需要手机 QQ 重新验证。')+
+                        '\n这里只报告服务状态，不附聊天正文、二维码或令牌。')
             except Exception as exc:
                 print(json.dumps({'event':'health_mail_failed','error_type':type(exc).__name__}))
         state[label] = entry

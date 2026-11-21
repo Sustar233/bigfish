@@ -1,0 +1,32 @@
+[Unit]
+Description=Owner QQ scoped Codex and Harness task broker
+After=network-online.target codex-proxy.service
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+RuntimeDirectory=qq-owner-ops
+RuntimeDirectoryMode=0700
+ExecStart=/usr/bin/python3 /home/ubuntu/qq-owner-ops/broker.py
+WorkingDirectory=/home/ubuntu/qq-owner-ops/workspace
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/home/ubuntu/qq-owner-ops/tasks /home/ubuntu/qq-owner-ops/workspace /home/ubuntu/.codex
+ReadWritePaths=/home/ubuntu/qq-codex /home/ubuntu/qq-dsh /home/ubuntu/qq-group /home/ubuntu/server-maintenance /home/ubuntu/dailyZhihu
+ReadWritePaths=-/home/ubuntu/server-media -/home/ubuntu/gold-watch
+ReadWritePaths=/home/ubuntu/.dsh/profiles/qq-owner /home/ubuntu/.dsh/sessions
+InaccessiblePaths=-/home/ubuntu/.ssh
+MemoryMax=1200M
+TasksMax=128
+CPUQuota=150%
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,24 @@
+[Unit]
+Description=Durable owner QQ message reminders
+After=network-online.target qq-account.service qq-dsh-account.service
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+ExecStart=/usr/bin/python3 /home/ubuntu/qq-reminders/reminders.py
+WorkingDirectory=/home/ubuntu/qq-reminders
+RuntimeDirectory=qq-reminders
+RuntimeDirectoryMode=0700
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/qq-reminders/data
+MemoryMax=160M
+TasksMax=24
+[Install]
+WantedBy=multi-user.target

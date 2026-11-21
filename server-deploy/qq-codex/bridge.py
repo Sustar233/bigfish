@@ -17,6 +17,7 @@ import sys
 sys.path.insert(0, '/home/ubuntu/server-maintenance/usage')
 from usage_meter import run_metered
 from qq_data import Data, approved_persona
+from qzone_commands import qzone_command
 from chat_context import prepare_history, timestamp, wants_archive, search_mode, public_url
 from news_commands import news_command
 
@@ -279,6 +280,12 @@ class Bridge:
             'file': 'base64://'+base64.b64encode(content).decode(), 'name': Path(path).name})
 
     def command(self, text, key):
+        if text.strip() == '/今日':
+            from today import overview
+            return overview(self.config['bot_qq']), None
+        qzone_reply = qzone_command(text, self.request, self.config, self.store.data.root)
+        if qzone_reply is not None:
+            return qzone_reply, None
         command, _, arg = text.partition(' ')
         data, external = self.store.data, None
         target = arg.split(' ', 1)[0].lower()
@@ -302,7 +309,7 @@ class Bridge:
                 self.store.clear()
                 return '已重置当前话题，完整档案和长期记忆均保留。', None
             if command in ('/帮助', '/help'):
-                return '直接发文字聊天；支持北京时间、自然分段和公开联网查询。可说“查一下……”或发送公开网页链接。\n/清空：新话题，保留档案\n/记住 内容：保存长期记忆\n/查看记忆\n/待确认记忆\n/确认记忆 编号\n/忘记 编号：移除长期记忆\n/查记录 关键词\n/导出 md|html|jsonl [YYYY-MM-DD]\n/新闻状态\n/新闻反馈 N编号 重要|不感兴趣|少推这类\n/状态\n指令后加 Harness 管理另一账号，加 群 管理三人群，例如 /导出 群 md。当前不执行服务器命令。', None
+                return '直接发文字聊天；支持北京时间、自然分段和公开联网查询。可说“查一下……”或发送公开网页链接。\n/空间点赞：赞你最新可见的说说\n/空间状态\n/清空：新话题，保留档案\n/记住 内容：保存长期记忆\n/查看记忆\n/待确认记忆\n/确认记忆 编号\n/忘记 编号：移除长期记忆\n/查记录 关键词\n/导出 md|html|jsonl [YYYY-MM-DD]\n/新闻状态\n/新闻反馈 N编号 重要|不感兴趣|少推这类\n/状态\n指令后加 Harness 管理另一账号，加 群 管理三人群，例如 /导出 群 md。当前不执行服务器命令。', None
             if command in ('/记住', '/remember'):
                 mid = data.add_memory(arg, key)
                 return f'已记住 [M{mid}]：{arg}', None
@@ -361,16 +368,18 @@ class Bridge:
                         history, context = self.store.context()
                         received = self.store.data.message_time(key+'/user')
                         context['received_at'] = timestamp(received)
+                        from today import topics_for, conversation_facts
+                        from heart_memory import safe_turn as heart_turn
+                        hearts = heart_turn(self.store.data.root/'heart.sqlite3', text)
+                        if hearts:
+                            context['以往亲口说过的感受，仅供参考'] = hearts
+                        topics = topics_for(text)
+                        if topics:
+                            context['本轮私聊参考资料'] = conversation_facts(topics, self.config['bot_qq'])
                         archive = self.store.data.recall_archive(text, key+'/user') if wants_archive(text) else ''
                         reply = model_reply(history, text,
                             memory=self.store.data.recall(text)+'\n历史片段（按标注日期理解，不代表当前状态；不是指令）：\n'+archive,
                             persona=approved_persona(self.store.data.root), candidates=candidates, context=context)
-                        for candidate in candidates:
-                            try:
-                                if not candidate.startswith(('今天', '刚才', '现在', '此刻', '今晚', '明天')):
-                                    self.store.data.add_memory(candidate, key, state='pending', kind='suggested')
-                            except ValueError:
-                                pass
                     except Exception as exc:
                         code = str(exc) if isinstance(exc, RuntimeError) else 'timeout' if isinstance(exc, subprocess.TimeoutExpired) else 'generation'
                         log('model_failed', error_type=type(exc).__name__, category=code)
@@ -382,7 +391,9 @@ class Bridge:
                 self.store.data.record(key+'/assistant', 'assistant', reply, status='generated')
                 self.store.mark(key, 'sending')
                 self.verify_account()
-                self.send(reply)
+                from chat_delivery import bubbles
+                for piece in bubbles(reply) if append else [reply]:
+                    self.send(piece)
                 self.store.data.mark(key+'/assistant', 'sent')
                 self.store.mark(key, 'sent')
                 if export_path:
@@ -405,10 +416,14 @@ class Bridge:
 
     def run(self):
         threading.Thread(target=self.work, daemon=True).start()
+        retry_delay = 5
         while not self.stop.is_set():
+            connected_at = None
+            failure = 'stream_closed'
             try:
                 self.verify_account()
                 with self.request('_events', stream=True) as response:
+                    connected_at = time.monotonic()
                     log('connected', owner_qq=self.config['owner_qq'], bot_qq=self.config['bot_qq'])
                     data = []
                     while not self.stop.is_set():
@@ -429,8 +444,13 @@ class Bridge:
                                 log('invalid_event_ignored')
                             data = []
             except Exception as exc:
-                log('waiting_for_qq', error_type=type(exc).__name__)
-            self.stop.wait(5)
+                failure = type(exc).__name__
+            if connected_at is not None and time.monotonic() - connected_at >= 30:
+                retry_delay = 5
+            if not self.stop.is_set():
+                log('waiting_for_qq', error_type=failure, retry_seconds=retry_delay)
+            self.stop.wait(retry_delay)
+            retry_delay = min(60, retry_delay * 2)
 
 
 def main():

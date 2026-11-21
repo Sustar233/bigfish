@@ -1,0 +1,14 @@
+[
+  {
+    "provider": "codex",
+    "case": "joke",
+    "reply": "你倒是很会分工，上班归我，发工资归你。",
+    "seconds": 25.0
+  },
+  {
+    "provider": "harness",
+    "case": "joke",
+    "reply": "你连班都想打包甩过来啊。",
+    "seconds": 2.5
+  }
+]

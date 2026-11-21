@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import {handleSmallcLogin,loginText,loginIntent,registerSmallcLogin} from './smallc-relogin.mjs';
+for(const text of ['帮小c重新登录一下','小c又掉了，帮忙弄一下','给小c换一张登录二维码','小c重新登上去吧','帮我拿个小c的新码','小c登录码失效了','麻烦你把小c登回来','重登'])assert.equal(loginIntent(text),'prepare',text);
+for(const text of ['我扫好了','小c已经扫码完成了','检查小c登录','小c在不在线','小c恢复了吗','看看小c登录状态'])assert.equal(loginIntent(text,{recent:true}),'verify',text);
+for(const text of ['码过期了','换个新码吧','刚才的二维码不能用了'])assert.equal(loginIntent(text,{recent:true}),'prepare',text);
+for(const text of ['先别给小c重新登录','不要重登小c','比如帮小c重登一下','别人说重登是什么意思','我支付码扫好了','今天有点累','好了'])assert.equal(loginIntent(text),null,text);
+assert.equal(loginIntent('好了',{recent:true}),'verify');
+assert.equal(loginIntent('肥鱼你重新登录一下'),'clarify');
+const owner={kind:'private',userId:'1000000001',text:'重登'};
+let calls=0;const sent=[];
+const call=async(action,data)=>{assert.equal(action,'send_private_msg');assert.equal(data.user_id,1000000001);sent.push(data);return{message_id:123};};
+const helper=async()=>{calls++;return{status:'scan_qr',age_seconds:1,png_base64:Buffer.from('89504e470d0a1a0a','hex').toString('base64')};};
+for(const inbound of [{...owner,userId:'999'},{...owner,kind:'group'},{...owner,text:'你好'},{...owner,text:'引用别人说重登'}]){
+ assert.equal(await handleSmallcLogin(inbound,'1000000003',call,{helper}),false);
+}
+assert.equal(calls,0);
+await handleSmallcLogin(owner,'1000000003',call,{helper,now:()=>200000});
+assert.equal(calls,1);assert.equal(sent[0].message[1].type,'image');
+await handleSmallcLogin({...owner,text:'已扫码'},'1000000003',call,{helper:async(mode)=>{assert.equal(mode,'verify');return{status:'online',expected_account:true};}});
+assert.match(sent.at(-1).message[0].data.text,/已经在线/);
+assert.doesNotMatch(loginText({status:'online',expected_account:false}),/已经在线/);
+for(const status of ['confirm_on_phone','verification_in_progress','initializing','wrong_account','qr_pending'])assert.ok(loginText({status}));
+await assert.rejects(handleSmallcLogin({...owner,text:'二维码过期'},'1000000003',call,{helper:async()=>({status:'scan_qr',age_seconds:90,png_base64:'bad'})}),/invalid_qr/);
+const registered=[];
+registerSmallcLogin({tools:{register:t=>registered.push(t)},systemPrompt:{section:()=>{}}},x=>x,exec=>{if(exec?.id!=='owner')throw Error('denied');},{call,helper:async()=>({status:'online',expected_account:true})});
+await assert.rejects(registered[0].execute({action:'prepare'},{id:'other'}),/denied/);
+await registered[0].execute({action:'verify'},{id:'owner'});
+console.log('owner-only QR delivery, verify, identity and stale-image guards passed');

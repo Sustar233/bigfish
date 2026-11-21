@@ -6,3 +6,6 @@
 *.py text eol=lf
 *.mjs text eol=lf
 *.ps1 text eol=crlf
+# Keep byte hashes in the pinned upstream/style manifests valid on every computer.
+/server-deploy/qq-codex/maibot-trial/upstream/** -text
+/server-deploy/qq-codex/maibot-trial/*-style.md -text

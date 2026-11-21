@@ -4,6 +4,7 @@ Description=Changsha weather at 06:00 Beijing time, with bounded morning retries
 [Timer]
 OnCalendar=*-*-* 06..07:00/10:00 Asia/Shanghai
 OnCalendar=*-*-* 08:00,10,20:00 Asia/Shanghai
+OnCalendar=*-*-* 08:25:00 Asia/Shanghai
 Persistent=false
 AccuracySec=1s
 Unit=changsha-weather.service

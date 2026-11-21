@@ -87,9 +87,13 @@ replace("                        context['received_at'] = timestamp(received)",
         "                        context['stickers_enabled'] = self.media.settings['stickers_enabled']")
 replace('candidates=candidates, context=context)',
         'candidates=candidates, context=context, media=choices)')
-replace('                self.send(reply)\n                self.store.data.mark',
-        "                self.send(reply)\n"
-        "                if append or media_command is not None:\n"
+replace('                for piece in bubbles(reply) if append else [reply]:\n                    self.send(piece)\n                self.store.data.mark',
+        "                from qq_media import wants_voice\n"
+        "                spoken = choices.get('voice') or (not choices.get('quiet') and wants_voice(text, voice_input, self.media.settings['voice_mode']))\n"
+        "                if not spoken:\n"
+        "                    for piece in bubbles(reply) if append else [reply]:\n"
+        "                        self.send(piece)\n"
+        "                if spoken or append or media_command is not None:\n"
         "                    for item in self.media.deliver(reply, text, voice_input, choices):\n"
         "                        self.store.data.record(key+'/'+item['kind'], 'assistant',\n"
         "                            '[语音回复]' if item['kind']=='voice' else '[表情包：'+item['name']+']',\n"

@@ -5,8 +5,8 @@ import edge_tts
 
 
 async def main():
-    text = sys.stdin.read(2000).strip()
-    if not text or len(text) > 500:
+    text = sys.stdin.read(4001).strip()
+    if not text or len(text) > 4000:
         raise ValueError('invalid_speech_length')
     if sys.argv[2] not in ('zh-CN-YunxiNeural', 'zh-CN-XiaoxiaoNeural'):
         raise ValueError('voice_not_allowed')
