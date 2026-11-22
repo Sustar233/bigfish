@@ -59,6 +59,12 @@ def parse_group(event):
 
 
 def participants(text, mentions, turn):
+    tagged=[label for label,account in ACCOUNTS.items() if account in mentions]
+    if tagged:
+        return tagged
+    direct=re.match(r'^\s*(小c|codex|gpt|大肥鱼|鱼鱼|鲸鱼|deepseek|harness)[，,：:！!\s]+',text,re.I)
+    if direct and not re.match(r'^(?:和|跟|还有|以及|小c|大肥鱼|你们)',text[direct.end():],re.I):
+        return ['codex' if direct[1].lower() in ('小c','codex','gpt') else 'harness']
     c = ACCOUNTS['codex'] in mentions or bool(re.search(r'codex|gpt|小c', text, re.I))
     h = ACCOUNTS['harness'] in mentions or bool(re.search(r'harness|deepseek|大肥鱼|鲸鱼|鱼鱼', text, re.I))
     first = 'codex' if c and not h else 'harness' if h else ('codex' if turn % 2 else 'harness')
@@ -126,6 +132,9 @@ class Room:
         self.control = Control(self.root/'.private/control.sqlite3')
         self.data = Data(self.root/'records', GROUP)
         self.condition = threading.Condition()
+        from group_pictures import Pictures
+        self.pictures = Pictures()
+        self.picture_quotes = {}
         self.pending = []
         self.last_input = 0
         self.stop = threading.Event()
@@ -172,10 +181,18 @@ class Room:
                 return
 
     def admit(self, event):
+        if isinstance(event,dict):
+            self.pictures.observe(event,GROUP,{OWNER,*ACCOUNTS.values()},ACCOUNTS['codex'])
         parsed = parse_group(event)
         if not parsed:
             return False
         key, text, mentions, occurred = parsed
+        with self.condition:
+            if str(event.get('self_id'))==ACCOUNTS['codex']:
+                quote=next((seg.get('data',{}).get('id') for seg in event.get('message',[]) if seg.get('type')=='reply'),None)
+                if quote is not None:
+                    if len(self.picture_quotes)>=32: self.picture_quotes.clear()
+                    self.picture_quotes[key]=str(quote)
         if not self.control.claim(key):
             return False
         self.data.record(key, 'user', text, occurred=occurred,
@@ -279,10 +296,11 @@ class Room:
                 pass
         chosen = [label for label in chosen if label in online]
         if not chosen:
-            chosen = online[:1]
+            return
         occurred = self.data.message_time(items[-1][0]) or time.time()
         self.round_context['received_at'] = timestamp(occurred)
         history.append({'role':'user','content':'用户：'+text,'occurred':occurred,'sent_at':timestamp(occurred)})
+        visual=None
         for label in chosen[:2]:
             if self.control.get('epoch') != epoch:
                 break
@@ -298,6 +316,10 @@ class Room:
                 break
             try:
                 instruction = '回应用户刚才的话。' if label == chosen[0] else '接着刚才搭档的回复补一句或自然互动；本轮到你这条就结束。'
+                if visual is None and 'codex' in self.endpoints:
+                    visual=self.pictures.describe(text,self.endpoints['codex'],ACCOUNTS['codex'],self.picture_quotes.pop(round_id,None))
+                if visual:
+                    instruction+='\n'+visual
                 reply = self.generate(label,history,instruction,query=text)
                 if self.control.get('paused') == '1' or self.stop.is_set() or self.control.get('epoch') != epoch:
                     self.control.mark(call,'cancelled_after_generation')

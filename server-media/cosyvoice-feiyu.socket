@@ -1,0 +1,11 @@
+[Unit]
+Description=Local CosyVoice socket for Feiyu QQ
+
+[Socket]
+ListenStream=/run/cosyvoice-feiyu.sock
+SocketGroup=ubuntu
+SocketMode=0660
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

@@ -208,7 +208,7 @@ class Service:
             raise ValueError('invalid_request')
         if not isinstance(prompt, str) or not 1 <= len(prompt.strip()) <= 4000:
             raise ValueError('invalid_prompt')
-        if kind not in ('generate', 'edit'):
+        if kind not in ('generate', 'edit', 'previous'):
             raise ValueError('invalid_kind')
         if kind == 'edit' and (not isinstance(message_id, (str, int)) or isinstance(message_id, bool)
                 or re.fullmatch(r'-?\d{1,20}', str(message_id)) is None):
@@ -222,9 +222,12 @@ class Service:
             if count >= 4:
                 raise ValueError('busy')
             now = time.time()
+            if kind == 'previous':
+                from companion_images import previous
+                message_id = previous(db, bot, prompt, message_id, now)
             from image_batch import enqueue
             enqueue(db, jobid, bot, event_key, prompt.strip(), now, kind,
-                    str(message_id) if kind == 'edit' else None)
+                    str(message_id) if kind in ('edit','previous') else None)
         self.wake.set()
         return {'id': jobid, 'status': 'queued', 'duplicate': False}
 
@@ -366,7 +369,15 @@ class Service:
                     raise RuntimeError('offline') from None
                 animated = wants_gif(job['prompt'])
                 render_prompt = storyboard_prompt(job['prompt']) if animated else job['prompt']
-                if job['kind'] == 'edit':
+                from companion_images import cached_input, portrait
+                card_input = None
+                if job['kind'] == 'generate':
+                    render_prompt, card_input = portrait(ROLES[job['bot']], render_prompt, ROOT/'cards')
+                if job['kind'] == 'previous':
+                    raw = self.generator(render_prompt, str(folder), inputs=[cached_input(self, job)])
+                elif card_input and not job['source_message_id']:
+                    raw = self.generator(render_prompt, str(folder), inputs=[card_input])
+                elif job['kind'] == 'edit':
                     try:
                         inputs = self.edit_inputs(job, folder)
                     except Exception:
@@ -452,7 +463,7 @@ def handler(service, token):
                     return
                 self.respond(200, result)
             except (ValueError, TypeError) as exc:
-                self.respond(400, {'error': str(exc) if str(exc) in ('busy', 'invalid_prompt') else 'invalid_request'})
+                self.respond(400, {'error': str(exc) if str(exc) in ('busy', 'invalid_prompt','missing_image') else 'invalid_request'})
             except Exception:
                 self.respond(500, {'error': 'unavailable'})
 

@@ -113,11 +113,17 @@ def zone_for(price, lower, upper):
     return 'below' if p < low else 'above' if p > high else 'inside'
 
 
-def alert_text(quote, zone, config):
-    relation = '低于 ' + config['lower'] if zone == 'below' else '高于 ' + config['upper']
-    return (f'小 C 金价提醒\n上金所 Au99.99：{quote["price"]} 元/克，已{relation} 元/克。\n'
-            f'行情日期：{quote["trade_date"]}\n抓取时间：{quote["fetched_at"]}\n'
-            f'数据为官方延时行情；同一侧持续越界不重复提醒。\n来源：{quote["source"]}')
+def alert_text(quote, zone, config, reference=None):
+    relation = {'inside': '在预警区间内', 'above': '高于上限 '+str(config['upper']),
+                'below': '低于下限 '+str(config['lower'])}[zone]
+    movement = ''
+    if reference is not None:
+        pct = (Decimal(quote['price']) / Decimal(reference) - 1) * 100
+        direction = '上涨' if pct > 0 else '下跌'
+        movement = f'较上次预警价 {reference} 元/克{direction} {abs(pct):.2f}%。\n'
+    return (f'小 C 金价提醒\n上金所 Au99.99：{quote["price"]} 元/克，{relation}。\n'
+            f'{movement}行情日期：{quote["trade_date"]}\n抓取时间：{quote["fetched_at"]}\n'
+            f'官方延时行情。来源：{quote["source"]}')
 
 
 class State:
@@ -150,16 +156,32 @@ class State:
             self.put('last_quote', quote)
             self.put('last_check', now_text())
             self.put('last_error', None)
-            if zone != previous:
-                self.db.execute("UPDATE alerts SET status='cancelled',updated=?,reason='zone_changed' WHERE status IN ('pending','queued')", (now_text(),))
-                if zone != 'inside':
-                    self.db.execute('INSERT INTO alerts(zone,quote,status,created,updated) VALUES(?,?,?,?,?)',
-                                    (zone, json.dumps(quote), 'pending', now_text(), now_text()))
+            last = self.db.execute("SELECT quote FROM alerts WHERE status IN ('sent','uncertain') ORDER BY id DESC LIMIT 1").fetchone()
+            reference = json.loads(last[0])['price'] if last else None
+            price = Decimal(quote['price'])
+            moved = reference is not None and abs(price - Decimal(reference)) >= Decimal(reference) / 10
+            pending = self.db.execute("SELECT id,zone,quote FROM alerts WHERE status IN ('pending','queued') ORDER BY id DESC LIMIT 1").fetchone()
+            crossing = zone != 'inside' and zone != previous
+            if pending:
+                # Older queued alerts always came from crossing a fixed threshold.
+                was_crossing = json.loads(pending[2]).get('crossing', True)
+                if pending[1] == zone and (moved or was_crossing):
+                    crossing = crossing or was_crossing
+                else:
+                    self.mark_pending_cancelled(pending[0])
+                    pending = None
             self.put('zone', zone)
-            row = self.db.execute("SELECT id FROM alerts WHERE zone=? AND status IN ('pending','queued') ORDER BY id DESC LIMIT 1", (zone,)).fetchone()
-            if row:
-                self.db.execute('UPDATE alerts SET quote=?,updated=? WHERE id=?', (json.dumps(quote), now_text(), row[0]))
-            return row[0] if row else None
+            if not crossing and not moved:
+                return None
+            snapshot = json.dumps(dict(quote, crossing=crossing, reference=reference if moved else None))
+            if pending:
+                self.db.execute('UPDATE alerts SET quote=?,updated=? WHERE id=?', (snapshot, now_text(), pending[0]))
+                return pending[0]
+            return self.db.execute('INSERT INTO alerts(zone,quote,status,created,updated) VALUES(?,?,?,?,?)',
+                                   (zone, snapshot, 'pending', now_text(), now_text())).lastrowid
+
+    def mark_pending_cancelled(self, event):
+        self.db.execute("UPDATE alerts SET status='cancelled',updated=?,reason='condition_cleared' WHERE id=?", (now_text(), event))
 
     def mark(self, event, status, reason=None, message_id=None):
         with self.db:
@@ -211,7 +233,9 @@ def deliver(state, event, quote, config, qq=None):
         return 'queued_qq_offline'
     state.mark(event, 'sending')  # durable before the side effect
     try:
-        result = qq.send(alert_text(quote, zone_for(quote['price'], config['lower'], config['upper']), config))
+        snapshot = state.db.execute('SELECT quote FROM alerts WHERE id=?', (event,)).fetchone()
+        reference = json.loads(snapshot[0]).get('reference')
+        result = qq.send(alert_text(quote, zone_for(quote['price'], config['lower'], config['upper']), config, reference))
         if result.get('message_id') is None:
             raise ValueError('No delivery identifier')
         state.mark(event, 'sent', message_id=result['message_id'])
@@ -237,8 +261,8 @@ def main():
     os.umask(0o077)
     private = ROOT/'.private'
     private.mkdir(mode=0o700, exist_ok=True)
-    config = load_config()
     if args.dry_run:
+        config = load_config()
         q = fetch_quote()
         print(json.dumps({'quote': q, 'fresh': fresh_quote(q), 'zone': zone_for(q['price'], config['lower'], config['upper']), 'notification_sent': False}, ensure_ascii=False))
         return 0
@@ -248,6 +272,7 @@ def main():
         except BlockingIOError:
             print('{"status":"already_running"}')
             return 0
+        config = load_config()
         state = State(private/'state.sqlite3')
         try:
             if args.status:

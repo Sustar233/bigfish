@@ -5,6 +5,10 @@ for(const text of ['我扫好了','小c已经扫码完成了','检查小c登录'
 for(const text of ['码过期了','换个新码吧','刚才的二维码不能用了'])assert.equal(loginIntent(text,{recent:true}),'prepare',text);
 for(const text of ['先别给小c重新登录','不要重登小c','比如帮小c重登一下','别人说重登是什么意思','我支付码扫好了','今天有点累','好了'])assert.equal(loginIntent(text),null,text);
 assert.equal(loginIntent('好了',{recent:true}),'verify');
+for(const text of ['重新登陆小C','小c的二维码再发我一下','帮小 C 连回来','小c的登录码呢','重新发小c的二维码让我扫一下登录','重连小c'])assert.equal(loginIntent(text),'prepare',text);
+for(const text of ['小c掉了？','小C还在线吗','小c断线了吗'])assert.equal(loginIntent(text),'verify',text);
+for(const text of ['别再发小c的登录码','帮我写一个重登小c的脚本','小c的付款二维码再发一张','如果小c掉了怎么办','再来一次'])assert.equal(loginIntent(text),null,text);
+assert.equal(loginIntent('再来一张',{recent:true}),'prepare');
 assert.equal(loginIntent('肥鱼你重新登录一下'),'clarify');
 const owner={kind:'private',userId:'1000000001',text:'重登'};
 let calls=0;const sent=[];
@@ -20,7 +24,7 @@ await handleSmallcLogin({...owner,text:'已扫码'},'1000000003',call,{helper:as
 assert.match(sent.at(-1).message[0].data.text,/已经在线/);
 assert.doesNotMatch(loginText({status:'online',expected_account:false}),/已经在线/);
 for(const status of ['confirm_on_phone','verification_in_progress','initializing','wrong_account','qr_pending'])assert.ok(loginText({status}));
-await assert.rejects(handleSmallcLogin({...owner,text:'二维码过期'},'1000000003',call,{helper:async()=>({status:'scan_qr',age_seconds:90,png_base64:'bad'})}),/invalid_qr/);
+await assert.rejects(handleSmallcLogin({...owner,text:'小c二维码过期'},'1000000003',call,{helper:async()=>({status:'scan_qr',age_seconds:90,png_base64:'bad'})}),/invalid_qr/);
 const registered=[];
 registerSmallcLogin({tools:{register:t=>registered.push(t)},systemPrompt:{section:()=>{}}},x=>x,exec=>{if(exec?.id!=='owner')throw Error('denied');},{call,helper:async()=>({status:'online',expected_account:true})});
 await assert.rejects(registered[0].execute({action:'prepare'},{id:'other'}),/denied/);

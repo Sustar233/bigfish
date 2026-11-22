@@ -115,6 +115,13 @@
       "reports": "/home/ubuntu/server-maintenance/usage/data/daily_totals.csv"
     },
     {
+      "id": "home-console",
+      "name": "小家私人控制台",
+      "root": "/home/ubuntu/home-console",
+      "units": ["bigfish-home.service"],
+      "docs": "../server-deploy/home-console/README.md"
+    },
+    {
       "id": "changsha-weather",
       "name": "小c长沙早间天气",
       "root": "/home/ubuntu/server-maintenance/weather",

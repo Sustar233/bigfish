@@ -23,6 +23,8 @@ def parse(text, image_count=0):
         return None
     if any(re.search(RULES[k], text, re.I) for k in ('analysis_first', 'negative', 'generation_question', 'non_image_generation')):
         return None
+    if not image_count and re.search(RULES["previous"], text):
+        return "previous", text
     if (not re.search(RULES['generation_question'], text, re.I)
             and not re.search(RULES['non_image_generation'], text, re.I)
             and not re.match(r'^(?:比如|例如|举例|假设|假如|[“\"「『])', text)):
@@ -52,8 +54,13 @@ def call(path, data):
         raise
 
 
-def image_command(text, key, bot=None, image_count=0, message_id=None):
+def image_command(text, key, bot=None, image_count=0, message_id=None, quote=None):
     parsed = parse(text, image_count)
+    if quote is not None and not image_count:
+        if re.search(RULES['negative'],text) or re.search(RULES['analysis_first'],text):
+            return None
+        if re.search(RULES['edit_action'],text) or re.search('按这张|照这张',text):
+            parsed = 'previous',text
     if parsed is None:
         return None
     action, prompt = parsed
@@ -74,7 +81,9 @@ def image_command(text, key, bot=None, image_count=0, message_id=None):
                 'sending': '画好了，正在发给你。', 'sent': '图已经发过去啦。', 'sent_relayed': '图已经补发过去啦。', 'delivery_failed': '图好了，但QQ没传上去，成品还留着。', 'failed': '这次没弄成。', 'uncertain': '刚才没确认发没发到，你先看看聊天里有没有图，我先不重发。'}
             return '[绘图' + job['id'][:6] + '] ' + labels.get(job['status'], job['status'])
         result = call('/jobs', {'bot': bot, 'event_key': key, 'prompt': prompt,
-            'kind': action, 'message_id': str(message_id) if image_count else None})
+            'kind': action, 'message_id': str(message_id) if image_count else quote if action=="previous" else None})
+        if result.get('error') == 'missing_image':
+            return '没找到你指的那张图，把原图发我就能接着改。'
         if result.get('error'):
             return '这会儿还有几张在画，等会儿再来找我。' if result['error'] == 'busy' else '刚才没接上，过会儿再试一下。'
         if result.get('duplicate'):

@@ -23,6 +23,7 @@ export async function handleVoiceImageInbound(inbound, selfId, call, dependencie
         if (!attempt) await (dependencies.pause ?? (() => new Promise(resolve => setTimeout(resolve, 1000))))();
     }
     if (!transcript) return null;
+    inbound.voiceTranscript = transcript;
     const caption = Array.isArray(inbound.segments) ? inbound.segments
         .filter(segment => segment.type === 'text' && typeof segment.data?.text === 'string')
         .map(segment => segment.data.text).join('').trim() : '';

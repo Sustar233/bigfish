@@ -8,6 +8,13 @@ from smallc_health_notice import notify
 
 
 class Tests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        mock = patch('smallc_health_notice.PENDING', Path(temp.name)/'offer')
+        mock.start()
+        self.addCleanup(mock.stop)
+
     def test_fixed_owner_and_uncertain_send(self):
         api=Mock(return_value={'message_id':123})
         self.assertEqual(notify(api,False),123)

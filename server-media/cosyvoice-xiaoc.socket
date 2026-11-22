@@ -1,0 +1,11 @@
+[Unit]
+Description=Local CosyVoice socket for Xiaoc QQ
+
+[Socket]
+ListenStream=/run/cosyvoice-xiaoc.sock
+SocketGroup=ubuntu
+SocketMode=0660
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

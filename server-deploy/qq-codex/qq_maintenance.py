@@ -164,11 +164,22 @@ def health():
         online = onebot_state == 'ready'
         old = state.get(label, {})
         failures = 0 if online else old.get('failures', 0)+1
+        if label == 'codex':
+            try:
+                from reconnect_push import heartbeat as recovery_heartbeat
+                recovery_heartbeat(online)
+            except Exception as exc:
+                print(json.dumps({'event':'reconnect_catchup_failed','error_type':type(exc).__name__}))
         sent = old.get('alerted_at', 0)
         changed = old.get('alert_active', False)
         should_send = (not online and failures >= 2 and now-sent > 6*3600) or (online and changed)
+        if label == 'codex':
+            outage = onebot_state == 'offline' or failures >= 2
+            should_send = (not online and outage and not old.get('offer_sent')) or (online and changed)
         entry = {'online': online, 'onebot_state': onebot_state, 'failures': failures, 'checked_at': now,
                  'alerted_at': sent, 'alert_active': changed}
+        if label == 'codex':
+            entry['offer_sent'] = bool(old.get('offer_sent')) and not online
         if should_send and label == 'codex' and onebot_health('harness', ACCOUNTS['harness'][0]) != 'ready':
             entry['qq_notification_pending'] = True
             should_send = False
@@ -182,11 +193,14 @@ def health():
                 if label == 'codex':
                     from smallc_health_notice import notify
                     notify(api, online)
+                    entry['offer_sent'] = not online
                 else:
                     mail(f'[QQ 助手{"已恢复" if online else "离线"}] {label} {account}',
                         f'账号 {account}：'+('已恢复在线。' if online else '连续两次检查不可用，可能需要手机 QQ 重新验证。')+
                         '\n这里只报告服务状态，不附聊天正文、二维码或令牌。')
             except Exception as exc:
+                if label == 'codex':
+                    entry['alert_active'] = changed
                 print(json.dumps({'event':'health_mail_failed','error_type':type(exc).__name__}))
         state[label] = entry
     logs = subprocess.check_output(['journalctl','-u','qq-chat.service','--since','10 minutes ago','--no-pager','-o','cat'], text=True)

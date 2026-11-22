@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 import re
 import sqlite3
-import time
+import sys
 
 NEWS = Path('/home/ubuntu/server-maintenance/news')
+sys.path.append(str(NEWS))
 RATINGS = {'重要', '不感兴趣', '少推这类', '多推这类'}
 LATEST = {'刚才', '这条', '上一条', '最新'}
 
@@ -51,6 +52,19 @@ def resolve_items(db, token=''):
 
 
 def news_followup(records, text):
+    clean = text.strip().rstrip('？?。！!')
+    if clean in ('看新闻偏好','查看新闻偏好','新闻偏好是什么','我的新闻偏好','新闻偏好'):
+        return news_command(records,'/新闻偏好','')
+    if match := re.fullmatch(r'(?:以后)?(?:新闻)?\s*(多推|少推)(?:些|一点|一些)?\s*(国际政治|战争安全|全球经济|灾害卫生|科技科学|中国及周边|科技新闻|科学新闻|战争新闻)', clean):
+        return news_command(records,'/新闻偏好',f'{match[2]} {match[1]}')
+    if clean.startswith('新闻偏好：'):
+        return news_command(records,'/新闻偏好',clean.split('：',1)[1].strip())
+    if match := re.fullmatch(r'(?:请|帮我)?(?:把)?(?:我的)?新闻偏好(?:改为|改成|更新为)[：: ]*(.+)', clean):
+        return news_command(records,'/新闻偏好','规则 额外选题偏好：'+match[1])
+    if match := re.fullmatch(r'(?:请|帮我)?(?:给)?(?:我的)?新闻偏好(?:加一条|补充)[：: ]*(.+)', clean):
+        return news_command(records,'/新闻偏好','加规则 '+match[1])
+    if re.fullmatch(r'(?:记住[，,：: ]*)?(?:以后|今后|请|帮我)(?=.*(?:新闻|快报|简报))(?=.*(?:多推|少推|优先|只推|关注)).{3,220}', clean):
+        return news_command(records,'/新闻偏好','加规则 '+clean)
     recent = r'(?:刚才(?:这|那)?条|这条|那条|上一条)(?:新闻|快报)?'
     if re.fullmatch(recent+r'(?:的)?(?:来源|原文|链接)(?:呢|是什么|给我看看)?[？?。！!]*', text.strip()):
         return news_command(records, '/新闻来源', '刚才')
@@ -68,16 +82,33 @@ def news_followup(records, text):
 
 
 def news_command(records, command, argument):
+    if command == '/新闻偏好':
+        import news_preferences as preferences
+
+        request = {'action':'show'}
+        if argument.strip():
+            aliases = {'科技新闻':'科技科学','科学新闻':'科技科学','战争新闻':'战争安全'}
+            if match := re.fullmatch(r'(.+?)\s+(多推|少推|[0-5](?:\.\d+)?)', argument.strip()):
+                topic = aliases.get(match[1],match[1])
+                if match[2] in ('多推','少推'):
+                    request = {'action':'adjust_weight','topic':topic,'direction':'more' if match[2]=='多推' else 'less'}
+                else:
+                    request = {'action':'set_weight','topic':topic,'weight':float(match[2])}
+            elif match := re.fullmatch(r'规则\s+([^：:]+)[：:]\s*(.*)', argument.strip()):
+                request = {'action':'set_rule','name':match[1],'value':match[2]}
+            elif match := re.fullmatch(r'加规则\s+(.+)', argument.strip()):
+                request = {'action':'add_rule','value':match[1]}
+            else:
+                return '可以用“/新闻偏好 科技科学 多推”，或“/新闻偏好 规则 数学突破：优先关注重大数学成果”。'
+        try:
+            prefs = preferences.update(request, NEWS, Path(records)/'news-feedback.sqlite3')
+        except (ValueError, OSError, sqlite3.Error):
+            return '新闻偏好操作未完成，请核对主题和参数后再试。'
+        return ('已更新共享新闻偏好。\n' if request['action']!='show' else '')+preferences.describe(prefs)
     path = NEWS/'.private/news.sqlite3'
     if not path.exists():
         return '新闻服务尚未初始化。'
-    with sqlite3.connect('file:'+str(path)+'?mode=ro', uri=True) as db:
-        if command == '/新闻偏好':
-            prefs_path = NEWS/'.private/interest_preferences.json'
-            prefs = json.loads(prefs_path.read_text()) if prefs_path.exists() else {}
-            weights = prefs.get('topic_weights', {})
-            return ('当前新闻主题权重（1为正常）：\n'+'\n'.join(k+'：'+str(v) for k,v in weights.items())+
-                    '\n反馈后下次采集同步生效。可以说“第2条少推这类”或“第3条多推这类”。')
+    with sqlite3.connect(path.resolve().as_uri()+'?mode=ro', uri=True) as db:
         if command == '/新闻来源':
             found = resolve_items(db, argument.strip())
             if not found:
@@ -104,9 +135,11 @@ def news_command(records, command, argument):
         found = (matches[0][0],matches[0][1].get('category','')) if matches else None
     if not found:
         return '未找到对应新闻。可以说“刚才那条”，或告诉我是简报第几条。'
-    target = Path(records)/'news-feedback.sqlite3'
-    with sqlite3.connect(target) as db:
-        db.execute('CREATE TABLE IF NOT EXISTS feedback(id INTEGER PRIMARY KEY,at REAL,event_key TEXT,category TEXT,rating TEXT)')
-        db.execute('INSERT INTO feedback(at,event_key,category,rating) VALUES(?,?,?,?)', (time.time(), found[0], found[1], parts[1]))
-    target.chmod(0o600)
-    return f'已记录“{parts[1]}”，后续筛选会参考这条偏好。'
+    import news_preferences as preferences
+
+    try:
+        preferences.update({'action':'feedback','event_key':found[0],'category':found[1],'rating':parts[1]},
+                           NEWS, Path(records)/'news-feedback.sqlite3')
+    except (ValueError, OSError, sqlite3.Error):
+        return '这条新闻反馈没能写入共享指南，请稍后再试。'
+    return f'已记录“{parts[1]}”，共享新闻偏好已更新。'

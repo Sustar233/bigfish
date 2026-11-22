@@ -12,10 +12,23 @@ def patch_sources(j):
     sub(p,'        const role = isAdmin',"""        const isVoice = kind === 'private' && inbound.media.some(ref=>ref.kind==='voice');
             let speech='';
             if (isVoice) {
-                try {speech=(await this.ctx.call('fetch_ptt_text',{message_id:inbound.messageId}))?.text||'';} catch {}
+                speech = inbound.voiceTranscript || '';
+                if (!speech) {
+                    try {speech=(await this.ctx.call('fetch_ptt_text',{message_id:inbound.messageId}))?.text||'';} catch {}
+                }
+                if (typeof speech === 'string' && speech.trim()) {
+                    final = wrapUserMessage([content, transcriptLabel(speech.trim())].join('\\n'), userId, nickname, inbound.messageId);
+                }
                 final += '\\n本轮由程序朗读最终回复，只输出要说的正文，不调用发送语音工具。';
             }
-            if(kind==='private') final += await emotionalContext(inbound,this.ctx.selfId(),speech);
+            if(kind==='private'){
+                const context=await emotionalContext(inbound,this.ctx.selfId(),speech);
+                if(context?.feedback){
+                    await this.ctx.sendToChat(chatId,context.feedback,{conversational:true,voiceReply:isVoice});
+                    return;
+                }
+                final+=context;
+            }
             const role = isAdmin""")
     sub(p,'        if (this.ctx.interceptBusyTurn !== undefined','        if(isVoice) rememberVoice(final);\n        if (this.ctx.interceptBusyTurn !== undefined')
     p=j/'bridge.js';put(p,"import {takeVoice} from './heart-chat.js';\n"+p.read_text())

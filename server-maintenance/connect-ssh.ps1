@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$InterfaceAlias,
-    [string]$Command
+    [string]$Command,
+    [switch]$ConnectionInfo
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,6 +39,10 @@ if ($sources.Count -eq 0) {
 if ($sources.Count -gt 1) {
     $choices = ($sources | ForEach-Object { $_.Adapter } | Sort-Object -Unique) -join ', '
     throw "Several LAN addresses were found. Specify the adapter with -InterfaceAlias ($choices)."
+}
+
+if ($ConnectionInfo) {
+    return [pscustomobject]@{ Target = $targets[0]; Source = $sources[0].Address; KnownHosts = $knownHosts }
 }
 
 $sshArguments = @('-b', $sources[0].Address, '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8',

@@ -280,6 +280,10 @@ class Bridge:
             'file': 'base64://'+base64.b64encode(content).decode(), 'name': Path(path).name})
 
     def command(self, text, key):
+        from heart_memory import control_reply
+        feedback=control_reply(self.store.data.root/'heart.sqlite3',text)
+        if feedback:
+            return feedback,None
         if text.strip() == '/今日':
             from today import overview
             return overview(self.config['bot_qq']), None

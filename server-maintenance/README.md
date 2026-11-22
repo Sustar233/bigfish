@@ -1,5 +1,11 @@
 # 服务器功能与维护总目录
 
+2026-11-22“小家”私人控制台已上线：既有 HTTPS 后台的 `/home/`，使用现有管理员登录；管理两号私聊、三人群聊及五项通知定时器。服务 `bigfish-home`，入口 `/home/ubuntu/home-console`，详细语义、核验和回滚见 [控制台说明](../server-deploy/home-console/README.md)。不停止QQ容器或清除档案，暂停前已执行的任务可能完成。
+
+2026-11-22新增重连补发：小c在线核验成功后及时补当天漏送天气、仍有效的已生成新闻和未送达的有效金价越界告警。复用原巡检与原任务回执，不新增定时器；原暂停状态、新闻免打扰和金价阈值保持。详见 `recovery/README.md`。
+
+2026-11-22新增小c临时接待：确认QQ离线时大肥鱼用自己的账号接待；仅模型不可用时使用小c原号的“大肥鱼值班”话术。临时接待拦住本人所有新功能请求，不排队或恢复补做；原有后台监控配置保持。复用既有巡检恢复常态，详见 `standby/README.md`。
+
 小c快速重登（本机）：`pwsh -NoProfile -File ./server-maintenance/smallc-login.ps1`；扫码确认后加 `-Mode Verify -WaitSeconds 15`。直接检查小c，离线等待扫码时主动刷新并保存新二维码到本机私密目录；在线时保持登录。工作区 `AGENTS.md` 已登记优先使用该入口，细节见 `CODEX-MAINTENANCE.md`。
 
 维护入口：`/home/ubuntu/server-maintenance/README.md`。服务器 `192.0.2.10`，日常用户 `ubuntu`，统一使用北京时间 `Asia/Shanghai`。
@@ -85,7 +91,7 @@ sudo systemctl restart qq-group
 ## 世界新闻提醒（试运行）
 
 - 程序：本目录 `news/news_watch.py`；规则：`news/config.json`。
-- 状态与发送队列：`news/.private/news.sqlite3`；QQ反馈：小 C 档案目录中的 `news-feedback.sqlite3`。
+- 状态与发送队列在 `news/.private/news.sqlite3`。小c、肥鱼、桌面 Codex 和定时推送使用 [同一份新闻偏好指南](news/PREFERENCES.md)，其中也保存对已推送新闻的反馈。
 - 每15分钟采集多个公开RSS及USGS数据。消息发布时间、合约式来源ID、原始报道方与文章链接经程序校验。
 - 普通重大快报要求至少两个独立原始报道方，并观察到真实联网交叉核实调用。转述同一通讯稿不算独立来源。
 - 达到规则的重大地震可按USGS官方记录直接提醒；不推断伤亡或海啸。

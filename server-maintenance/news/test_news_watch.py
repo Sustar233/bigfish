@@ -21,6 +21,7 @@ def article(key, family='BBC'):
 def event(key='test-ceasefire', ids=None):
     return {'event_key': key, 'title': '停火协议正式宣布', 'summary': '有关方面宣布达成停火协议。',
             'why': '可能影响地区安全局势。', 'category': '战争安全', 'importance': 'major', 'verified': True,
+            'conflict_impact': 'broader',
             'evidence_ids': ['a', 'b'] if ids is None else ids, 'event_time': '尚未确认',
             'update_of': '', 'material_update': False, 'is_correction': False}
 
@@ -31,8 +32,8 @@ class NewsTests(unittest.TestCase):
         clock.start()
         self.addCleanup(clock.stop)
         self.temp = tempfile.TemporaryDirectory()
-        for name, value in [('preference_path', Path(self.temp.name)/'prefs.json'), ('feedback_path', Path(self.temp.name)/'feedback.db')]:
-            patcher = patch.object(n, name, return_value=value)
+        root = Path(self.temp.name)
+        for patcher in (patch.object(n, 'ROOT', root), patch.object(n, 'feedback_path', return_value=root/'feedback.db')):
             patcher.start()
             self.addCleanup(patcher.stop)
         self.state = n.State(Path(self.temp.name)/'state.db')

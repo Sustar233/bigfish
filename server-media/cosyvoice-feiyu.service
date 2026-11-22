@@ -1,0 +1,12 @@
+[Unit]
+Description=CosyVoice synthesis for Feiyu QQ
+
+[Service]
+ExecStart=/usr/bin/python3 -B /opt/cosyvoice-feiyu/cosyvoice_feiyu.py serve
+DynamicUser=yes
+LoadCredential=bailian:/etc/cosyvoice-feiyu/key
+ProtectHome=yes
+ProtectSystem=strict
+PrivateTmp=yes
+NoNewPrivileges=yes
+MemoryMax=128M

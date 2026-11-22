@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import news_commands as n
+import news_preferences as p
 
 
 class NewsCommandTests(unittest.TestCase):
@@ -28,8 +29,7 @@ class NewsCommandTests(unittest.TestCase):
                 self.assertNotIn('pending-story', text)
                 self.assertIn('已记录', n.news_followup(records, '这条新闻少推这类'))
                 self.assertNotIn('N编号', n.news_command(records, '/新闻反馈', '无效参数'))
-            with sqlite3.connect(records/'news-feedback.sqlite3') as db:
-                self.assertEqual(db.execute('SELECT event_key FROM feedback').fetchall(), [('delivered-story',)])
+            self.assertEqual(p.load(p.guide_path(root))['event_feedback'], {'delivered-story':'少推这类'})
 
     def test_latest_digest_feedback_requires_a_specific_item(self):
         with sqlite3.connect(':memory:') as db:
@@ -54,7 +54,18 @@ class NewsCommandTests(unittest.TestCase):
                 self.assertIn('https://bbc.com/news/a',n.news_followup(records,'第1条来源呢'))
                 self.assertIn('已记录',n.news_followup(records,'第1条少推这类'))
                 self.assertIsNone(n.news_followup(records,'这段代码怎么理解'))
-                self.assertIn('科技科学：1.5',n.news_command(records,'/新闻偏好',''))
+                self.assertIn('科技科学：1.2',n.news_command(records,'/新闻偏好',''))
+                self.assertIn('科技科学：1.5',n.news_followup(records,'以后多推科学新闻'))
+
+    def test_natural_language_rules_append_without_overwriting_or_duplicating(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            with patch.object(n, 'NEWS', root):
+                for text in ('新闻偏好加一条：优先推送可复现的成果', '以后新闻优先推送数学突破',
+                             '新闻偏好加一条：优先推送可复现的成果'):
+                    self.assertIn('已更新', n.news_followup(root, text))
+            self.assertEqual(list(p.load(p.guide_path(root))['editorial_rules'].values()),
+                             ['优先推送可复现的成果', '以后新闻优先推送数学突破'])
 
     def test_status_and_feedback_are_fixed_scope_and_validate_event(self):
         with tempfile.TemporaryDirectory() as td:
@@ -71,8 +82,7 @@ class NewsCommandTests(unittest.TestCase):
                 self.assertIn('已记录', n.news_command(records, '/新闻反馈', 'N'+code+' 少推这类'))
                 self.assertIn('未找到', n.news_command(records, '/新闻反馈', 'N00000000 不感兴趣'))
                 self.assertIn('用法', n.news_command(records, '/新闻反馈', '../../secret 重要'))
-            with sqlite3.connect(records/'news-feedback.sqlite3') as db:
-                self.assertEqual(db.execute('SELECT rating FROM feedback').fetchall(), [('少推这类',)])
+            self.assertEqual(p.load(p.guide_path(root))['event_feedback'], {'event-one':'少推这类'})
 
 
 if __name__ == '__main__':

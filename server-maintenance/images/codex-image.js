@@ -11,6 +11,7 @@ export function parseImageCommand(text, imageCount = 0) {
     match = /^(?:(?:改图|修图|编辑图片|修改图片)\s*[:：]|\/(?:改图|修图)(?:\s+|$))([\s\S]*)$/u.exec(text);
     if (match) return { action: 'edit', prompt: match[1].trim() };
     if (!text || text.startsWith('/') || ['analysis_first', 'negative', 'generation_question', 'non_image_generation'].some(key => matches(key, text))) return null;
+    if (!imageCount && matches('previous', text)) return { action: 'previous', prompt: text };
     if (!matches('generation_question', text) && !matches('non_image_generation', text)
         && !/^(?:比如|例如|举例|假设|假如|[“"「『])/u.test(text)
         && RULES.generation.some(pattern => new RegExp(pattern, 'iu').test(text)))
@@ -21,19 +22,22 @@ export function parseImageCommand(text, imageCount = 0) {
 }
 export async function handleImageInbound(inbound, selfId, authorize, dispatch = codexImageCommand) {
     if (inbound.kind !== 'private' || inbound.messageId === undefined
-        || inbound.replyId !== undefined || inbound.forwardId !== undefined
+        || inbound.forwardId !== undefined
         || !inbound.media.every(ref => ref.kind === 'image')) return null;
     const count = inbound.media.length;
     const text = Array.isArray(inbound.segments) ? inbound.segments
         .filter(segment => segment.type === 'text' && typeof segment.data?.text === 'string')
         .map(segment => segment.data.text).join('').trim() : inbound.text;
-    if (!parseImageCommand(text, count)) return null;
+    const quoted = inbound.replyId != null && !count && !matches('negative',text) && !matches('analysis_first',text)
+        && (matches('edit_action',text) || /按这张|照这张/u.test(text));
+    if (inbound.replyId != null && !quoted || !quoted && !parseImageCommand(text, count)) return null;
     const config = authorize ?? JSON.parse(await readFile(ROOT + 'accounts.json', 'utf8'));
     if (inbound.userId !== config.owner || config.accounts[selfId]?.port !== 13101) return null;
+    if (quoted) return dispatch(text, `${inbound.time}/${inbound.messageId}`, selfId, count, inbound.messageId, inbound.replyId);
     return dispatch(text, `${inbound.time}/${inbound.messageId}`, selfId, count, inbound.messageId);
 }
-export async function codexImageCommand(text, key, bot, imageCount = 0, messageId = null) {
-    const parsed = parseImageCommand(text, imageCount);
+export async function codexImageCommand(text, key, bot, imageCount = 0, messageId = null, quote = null) {
+    const parsed = quote != null ? { action:'previous', prompt:text } : parseImageCommand(text, imageCount);
     if (!parsed) return null;
     if (parsed.action === 'edit' && imageCount && !parsed.prompt) parsed.prompt = RULES.default_edit;
     if (parsed.action === 'edit' && (!imageCount || messageId == null))
@@ -47,11 +51,12 @@ export async function codexImageCommand(text, key, bot, imageCount = 0, messageI
         const response = await fetch('http://127.0.0.1:13210' + (status ? '/status' : '/jobs'), {
             method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
             body: JSON.stringify(status ? { bot } : { bot, event_key: key, prompt: parsed.prompt,
-                kind: parsed.action, message_id: imageCount ? String(messageId) : null }),
+                kind: parsed.action, message_id: imageCount ? String(messageId) : quote }),
             signal: AbortSignal.timeout(8000),
         });
         if (!response.ok && response.status !== 400) throw new Error('unavailable');
         const result = await response.json();
+        if (result.error === 'missing_image') return '没找到你指的那张图，把原图发我就能接着改。';
         if (result.error) return result.error === 'busy' ? '这会儿还有几张在画，等会儿再来找我。' : '刚才没接上，过会儿再试一下。';
         if (status) {
             if (!result.job) return '还没画过呢。想画什么，发“生图：……”给我就行。';

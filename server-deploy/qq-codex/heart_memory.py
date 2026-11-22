@@ -40,19 +40,62 @@ def note(text):
     return None
 
 
-def turn(path,text):
-    if not text or EXCLUDE.search(text) or OPERATIONS.search(text):
+VOICE_EXCLUDE = re.compile(EXCLUDE.pattern.replace('|[a-z]{3,}', '') +
+    r'|\b(?:root|codex|harness|sudo|ssh)\b|(?:登录|登陆|重登|重连|扫码|验证码|二维码)|\[语音\]|\[CQ:|base64:|file://', re.I)
+
+
+def turn(path,text,*,voice=False):
+    if not text or (VOICE_EXCLUDE if voice else EXCLUDE).search(text) or OPERATIONS.search(text):
         return []
     with closing(sqlite3.connect(path,timeout=3)) as db, db:
         db.execute("CREATE VIRTUAL TABLE IF NOT EXISTS memories USING fts5(words,body UNINDEXED,day UNINDEXED)")
+        db.execute('CREATE TABLE IF NOT EXISTS heart_focus(id INTEGER PRIMARY KEY CHECK(id=1), target INTEGER)')
+        db.execute('CREATE TABLE IF NOT EXISTS heart_muted(body TEXT PRIMARY KEY)')
+        from companion_care import care_turn
+        feedback=care_turn(db,text)
+        if feedback:
+            return [{'操作结果':feedback}]
+        action=re.fullmatch(r'(?:请)?(?:把)?(?:这段|这件事|那件事|那段|这条记忆)(?:给我)?(忘了|忘掉|忘记|以后别再提了|别再提了)[。！!]*',text)
+        correction=re.fullmatch(r'(?:上次|那次)(.{0,35}?)[，, ]*(?:其实是|其实应是)(.{1,120})[。！!]*',text)
+        if action or correction:
+            target=None
+            if correction:
+                hint=correction[1].strip('我，, ')
+                if hint:
+                    rows=db.execute('SELECT rowid FROM memories WHERE instr(body,?)>0 LIMIT 2',(hint,)).fetchall()
+                    if len(rows)==1: target=rows[0][0]
+                    if len(rows)>1: return [{'操作结果':'有几段相关往事，可以说得更具体一点吗？'}]
+            if target is None and (not correction or not hint):
+                row=db.execute('SELECT target FROM heart_focus WHERE id=1').fetchone()
+                target=row[0] if row else None
+            row=db.execute('SELECT body FROM memories WHERE rowid=?',(target,)).fetchone()
+            if not row: return [{'操作结果':'还不能确定是哪一段，你可以先提一下那件事。'}]
+            if correction:
+                body=correction[0].strip()
+                db.execute('UPDATE memories SET words=?,body=? WHERE rowid=?',(' '.join(terms(body)),body,target))
+                if db.execute('SELECT 1 FROM heart_muted WHERE body=?',row).fetchone():
+                    db.execute('INSERT OR IGNORE INTO heart_muted VALUES(?)',(body,))
+                feedback='我记清楚了。'
+            elif '提' in action[1]:
+                db.execute('INSERT OR IGNORE INTO heart_muted VALUES(?)',row)
+                feedback='好，以后我不主动提这段。'
+            else:
+                db.execute('DELETE FROM heart_focus')
+                db.execute('DELETE FROM memories WHERE rowid=?',(target,))
+                db.execute('DELETE FROM heart_muted WHERE body=?',row)
+                feedback='好，已经从情感记忆里删掉了。'
+            db.execute('UPDATE care SET topic=NULL,due=NULL')
+            return [{'操作结果':feedback}]
         forget=re.fullmatch(r'(?:请)?(?:忘掉|忘记|删除)(?:那条|关于)?(.{1,80}?)(?:的记忆)[。！! ]*',text)
         if forget:
+            db.execute('DELETE FROM heart_focus')
+            db.execute('DELETE FROM heart_muted WHERE instr(body,?)>0',(forget[1],))
             db.execute('DELETE FROM memories WHERE instr(body,?)>0',(forget[1],))
             return []
         keys=terms(text)
         matches=[]
         if keys:
-            rows=db.execute('SELECT day,body,words FROM memories WHERE words MATCH ? ORDER BY rank LIMIT 8',
+            rows=db.execute('SELECT day,body,words FROM memories WHERE words MATCH ? AND body NOT IN (SELECT body FROM heart_muted) ORDER BY rank LIMIT 8',
                                (' OR '.join('"'+t+'"' for t in keys[:80]),)).fetchall()
             for day,body,words in rows:
                 shared=set(keys).intersection(words.split())
@@ -60,17 +103,35 @@ def turn(path,text):
                     matches.append((day,body))
             matches=matches[:3]
         value=note(text)
+        if voice:
+            value=None if re.search(r'不要记|别记|不许记|不要保存|别存|不想被记住|忘掉|忘记',text) else text
         if value and not db.execute('SELECT 1 FROM memories WHERE body=?',(value,)).fetchone():
             db.execute('INSERT INTO memories VALUES(?,?,?)',(' '.join(terms(value)),value,datetime.now(timezone.utc).date().isoformat()))
+        focus = value or (matches[0][1] if len(matches)==1 else None)
+        if focus:
+            db.execute('INSERT OR REPLACE INTO heart_focus SELECT 1,rowid FROM memories WHERE body=?',(focus,))
+        elif matches:
+            db.execute('DELETE FROM heart_focus')
         return [dict(day=d,words=b) for d,b in matches if b!=value]
 
 
-def safe_turn(path, text):
+def control_reply(path,text):
+    if not re.search(r'主动关心我|免打扰|别打扰我|忘了|忘掉|忘记|别再提了|其实是|其实应是',text):
+        return None
+    notes=safe_turn(path,text)
+    if notes and '操作结果' in notes[0]:
+        return notes[0]['操作结果']
+    return None
+
+
+def safe_turn(path, text, *, voice=False):
     try:
-        return turn(path, text)
+        return turn(path, text, voice=voice)
     except (OSError, sqlite3.Error):
         return []
 
 
 if __name__=='__main__':
-    print(json.dumps(safe_turn(Path('/home/ubuntu/qq-dsh/records/heart.sqlite3'),sys.stdin.read(4001)),ensure_ascii=False))
+    voice = sys.argv[1:] == ['--voice-text']
+    text = sys.stdin.read() if voice else sys.stdin.read(4001)
+    print(json.dumps(safe_turn(Path('/home/ubuntu/qq-dsh/records/heart.sqlite3'),text,voice=voice),ensure_ascii=False))

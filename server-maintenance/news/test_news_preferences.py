@@ -9,6 +9,54 @@ import news_watch as n
 
 
 class PreferencesTests(unittest.TestCase):
+    def test_shared_guide_merges_existing_rules_and_immediate_feedback(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            old=root/'.private/interest_preferences.json'
+            p.save(old, {'topic_weights': {'全球经济': 1.5}, 'blocked_keywords':['重复旧闻']})
+            old_db=root/'no-legacy-feedback'
+            p.update({'action':'set_rule','name':'科学进展','value':'优先数学突破'}, root, old_db)
+            p.update({'action':'feedback','event_key':'story-a','category':'科技科学','rating':'多推这类'}, root, old_db)
+            p.update({'action':'set_weight','topic':'战争安全','weight':0.35}, root, old_db)
+            self.assertEqual(p.load(p.guide_path(root))['topic_weights']['科技科学'],1.25)
+            current=p.update({'action':'show'}, root, old_db)
+            self.assertEqual(current['topic_weights']['全球经济'],1.5)
+            self.assertEqual(current['topic_weights']['战争安全'],0.35)
+            self.assertEqual(current['editorial_rules']['科学进展'],'优先数学突破')
+            self.assertEqual(current['blocked_keywords'],['重复旧闻'])
+            self.assertEqual(current['event_feedback']['story-a'],'多推这类')
+
+    def test_formal_proof_report_is_promoted_and_can_use_older_sources(self):
+        from test_news_watch import event, NOW
+        prefs=p.load('/nonexistent-interest-test')
+        prefs['topic_weights'].update({'科技科学':3,'战争安全':.35})
+        with tempfile.TemporaryDirectory() as td, patch.object(n,'current_preferences',return_value=prefs):
+            state=n.State(Path(td)/'news.db')
+            title='Two groups verify mathematician’s claim that Claude helped prove mathematics problem'
+            self.assertGreaterEqual(n.priority(title),2)
+            self.assertTrue(p.science_milestone(title))
+            articles=[{'id':identity,'family':family,'title':title,'summary':'','published':NOW-24*3600,'score':5,
+                       'publisher':family,'url':f'https://example.org/{identity}'} for identity,family in [('a','Nature'),('b','BBC')]]
+            state.ingest(articles)
+            self.assertEqual(len(n.breaking_pool(state,6,NOW)),2)
+            war=event(ids=['a','b'])
+            self.assertEqual(n.validate_events([dict(war,conflict_impact='local')],articles,'breaking'),[])
+            self.assertEqual(n.validate_events([dict(war,conflict_impact='local')],articles,'digest')[0]['importance'],'context')
+            self.assertEqual(len(n.validate_events([war],articles,'breaking')),1)
+            state.db.close()
+
+    def test_nature_calendar_day_is_preserved_without_guessed_event_time(self):
+        from test_news_watch import NOW
+        body = (b'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
+                b'xmlns="http://purl.org/rss/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+                b'<item><title>Riemann hypothesis verification</title><link>https://www.nature.com/articles/test</link>'
+                b'<dc:date>2026-11-15</dc:date></item></rdf:RDF>')
+        source = ('nature_science','Nature','https://www.nature.com/nature.rss',['nature.com'])
+        article, = n.parse_feed(body, source, NOW)
+        self.assertEqual(article['publication_day'],'2026-11-15')
+        self.assertEqual(article['score'],5)
+        self.assertNotIn('event_time',article)
+
     def test_feedback_is_persisted_once_and_changes_topic_weight(self):
         with tempfile.TemporaryDirectory() as td:
             prefs,dbpath = Path(td)/'prefs.json',Path(td)/'feedback.sqlite3'

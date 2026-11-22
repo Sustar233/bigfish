@@ -109,6 +109,39 @@ class GoldTests(unittest.TestCase):
         self.assertEqual(self.state.db.execute('SELECT status FROM alerts WHERE id=?', (event,)).fetchone()[0], 'uncertain')
         self.assertIsNone(self.state.observe(quote(901), CONFIG))
 
+    def test_ten_percent_inclusive_in_either_direction_inside_and_outside(self):
+        first = self.state.observe(quote(800), CONFIG)
+        self.state.mark(first, 'sent', message_id=1)
+        self.assertIsNone(self.state.observe(quote('879.99'), CONFIG))
+        up = self.state.observe(quote(880), CONFIG)
+        qq = Mock()
+        qq.send.return_value = {'message_id':2}
+        self.assertEqual(g.deliver(self.state, up, quote(880), CONFIG, qq), 'sent')
+        self.assertIn('上涨 10.00%', qq.send.call_args.args[0])
+        self.assertIsNone(self.state.observe(quote(880), CONFIG))
+        down = self.state.observe(quote(792), CONFIG)
+        self.state.mark(down,'sent')
+        self.assertIsNone(self.state.observe(quote('712.81'),CONFIG))
+        self.assertIsNotNone(self.state.observe(quote('712.80'),CONFIG))
+
+    def test_queued_move_cleared_after_rebound(self):
+        first=self.state.observe(quote(800),CONFIG)
+        self.state.mark(first,'sent')
+        move=self.state.observe(quote(720),CONFIG)
+        self.state.mark(move,'queued')
+        self.assertIsNone(self.state.observe(quote(721),CONFIG))
+
+    def test_atomic_partial_limit_updates(self):
+        from gold_limits import limits
+        folder=Path(self.temp.name)
+        config=folder/'config.json'
+        config.write_text(json.dumps(CONFIG))
+        self.assertEqual(limits(folder,upper='920')['lower'],'810')
+        self.assertEqual(limits(folder,lower='812.50')['upper'],'920')
+        with self.assertRaises(ValueError):
+            limits(folder,lower='930')
+        self.assertEqual(limits(folder),{'lower':'812.50','upper':'920'})
+
     def test_notification_destination_cannot_be_set_by_quote_content(self):
         with patch.object(Path, 'read_text', return_value=json.dumps({
             'owner_qq': g.OWNER, 'bot_qq': g.BOT,

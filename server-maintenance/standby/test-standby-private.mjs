@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { standbyPrivate } from './standby-private.js';
+const input={kind:'private',userId:'owner',messageId:'1',text:'/生图 小猪'};
+let checks=0;
+const deps={identity:async()=>({owner:'owner',bot:'bot'}),query:async()=>{checks++;return {active:true,reply:'等小c回来，不开功能。'};}};
+assert.match(await standbyPrivate(input,'bot',deps),/不开功能/);
+assert.equal(await standbyPrivate({...input,userId:'stranger'},'bot',deps),null);
+assert.equal(await standbyPrivate({...input,kind:'group'},'bot',deps),null);
+assert.equal(await standbyPrivate(input,'other-bot',deps),null);
+assert.equal(checks,1);
+assert.equal(await standbyPrivate(input,'bot',{...deps,query:async()=>({active:false,reply:null})}),null);
+assert.match(await standbyPrivate(input,'bot',{...deps,query:async()=>{throw Error('bad');}}),/功能先不开/);
+console.log('standby owner gate, active interception and recovery pass-through: passed');

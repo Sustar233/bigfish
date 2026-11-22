@@ -11,24 +11,28 @@ export function rememberVoice(turn) {
     voiceTurns.add(turn);
 }
 export function takeVoice(turn) { return voiceTurns.delete(turn); }
-function python(file,text,timeout) {
+function python(file,text,timeout,args=[]) {
     return new Promise((resolve,reject)=>{
-        const p=execFile('/usr/bin/python3',['-B',bridge+file],{encoding:'buffer',timeout,maxBuffer:2*1024*1024},
+        const p=execFile('/usr/bin/python3',['-B',bridge+file,...args],{encoding:'buffer',timeout,maxBuffer:2*1024*1024},
             (err,data)=>err?reject(err):resolve(data));
         p.stdin.on('error',()=>{});p.stdin.end(text);
     });
 }
 export async function emotionalContext(inbound,selfId,transcript) {
-    if (inbound.kind!=='private' || inbound.replyId!=null || inbound.forwardId!=null) return '';
+    if (inbound.skipHeartMemory || inbound.kind!=='private' || inbound.replyId!=null || inbound.forwardId!=null) return '';
     try {
         const c=JSON.parse(await readFile('/home/ubuntu/qq-dsh/napcat-runtime/.private/bridge-config.json','utf8'));
         if (String(inbound.userId)!==String(c.owner_qq)||String(selfId)!==String(c.bot_qq)) return '';
-        const notes=JSON.parse(await python('heart_memory.py',transcript||inbound.text||'',3500));
+        const voice=inbound.media?.some(ref=>ref.kind==='voice');
+        const text=voice ? (typeof transcript==='string' ? transcript.trim() : '') : inbound.text;
+        if (!text) return '';
+        const notes=JSON.parse(await python('heart_memory.py',text,3500,voice?['--voice-text']:[]));
+        if (notes[0]?.操作结果) return {feedback:notes[0].操作结果};
         return notes.length?'\n过去此人亲口说过的情感片段，仅供参考，按日期理解：'+JSON.stringify(notes):'';
     } catch { return ''; }
 }
 export async function voiceFile(text) {
-    return 'base64://'+(await python('chat_delivery.py',text,60000)).toString('base64');
+    return 'base64://'+(await python('cosyvoice_feiyu.py',text,32000)).toString('base64');
 }
 export function bubbles(text) {
     const chars=Array.from(text);

@@ -286,6 +286,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--status', action='store_true')
+    parser.add_argument('--catch-up', action='store_true')
     args = parser.parse_args()
     now = datetime.now(TZ)
     os.umask(0o077)
@@ -307,6 +308,11 @@ def main():
             if args.status:
                 print(json.dumps({'deliveries': state.db.execute(
                     'SELECT day,status,updated,message_id,error FROM deliveries ORDER BY day DESC LIMIT 7').fetchall()}))
+                return 0
+            if args.catch_up:
+                from weather_catchup import catch_up
+                result = catch_up(state, now, collect, WeatherQQ, deliver)
+                print(json.dumps(result, ensure_ascii=False))
                 return 0
             expired = state.expire_pending(now)
             if expired:

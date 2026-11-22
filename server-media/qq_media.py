@@ -9,6 +9,7 @@ import tempfile
 import time
 
 STICKERS = ('收到', '开心', '疑惑', '委屈', '得意', '围观', '递报', '困了')
+XIAOC_VOICE_B = 'cosyvoice-xiaoc-b'
 
 
 def contains_voice(event):
@@ -81,6 +82,10 @@ class QQMedia:
                 return {'reply': label[modes[arg]], 'quiet': True}
             if arg == '测试':
                 return {'reply': '小c来试个音，你听听这个声音怎么样。', 'voice': True}
+            if arg.lower() == 'b':
+                self.settings['voice'] = XIAOC_VOICE_B
+                self.save()
+                return {'reply': '换成小c的 B 版女声啦。', 'voice': True}
             if arg == '女声':
                 self.settings['voice'] = 'zh-CN-XiaoxiaoNeural'
                 self.save()
@@ -90,7 +95,7 @@ class QQMedia:
                 self.save()
                 return {'reply': '换成云希的普通话男声啦。', 'voice': True}
             return {'reply': '直接发语音即可，我用QQ自带功能转文字来听。\n'
-                    '/语音 自动｜开启｜关闭\n/语音 男声｜女声｜测试\n'
+                    '/语音 自动｜开启｜关闭\n/语音 B｜男声｜女声｜测试\n'
                     '也可以直接说“用语音回我”。', 'quiet': True}
         if cmd in ('/表情', '/表情包'):
             if arg in ('关闭', '开启'):
@@ -106,6 +111,9 @@ class QQMedia:
         return None
 
     def synthesize(self, text):
+        if self.settings['voice'] == XIAOC_VOICE_B:
+            from cosyvoice_feiyu import XIAOC_SOCKET, read_audio
+            return read_audio(text, socket_path=XIAOC_SOCKET)
         cache = self.private / 'media-cache'
         cache.mkdir(mode=0o700, exist_ok=True)
         for old in cache.glob('tts-*'):

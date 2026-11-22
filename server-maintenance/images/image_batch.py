@@ -31,6 +31,8 @@ def prompts_for(prompt):
     if not match:
         match = re.search(r'[,，；;、：:\s]\s*' + quantity + r'(?:独立|不同|单独|分别|图|插画|照片|海报|壁纸|[，,。！!]|$)', text)
     if not match:
+        match = re.search(r'(?:再给我|给我|再来|做|出)\s*('+NUMBER+r')\s*(?:个|种)版本', text)
+    if not match:
         match = re.match(quantity, text)
     if not match:
         match = re.search(r'(?:生成|create|generate|draw)\s*(\d+)\s*(?:separate\s+)?(?:images|pictures|illustrations)\b', text, re.I)

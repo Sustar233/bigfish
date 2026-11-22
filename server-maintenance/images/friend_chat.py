@@ -100,8 +100,19 @@ def start(service, api):
         def send(user, answer):
             if friend(bot,user):
                 service.request(bot,'send_private_msg',{'user_id':int(user),'message':[{'type':'text','data':{'text':answer[:3000]}}]})
+        next_check=0
         while True:
             try:
+                if time.monotonic()>=next_check:
+                    next_check=time.monotonic()+60
+                    from companion_care import deliver_due
+                    for path in base.glob('*/heart.sqlite3'):
+                        if path.parent.name.isdecimal():
+                            deliver_due(path,lambda msg:send(path.parent.name,msg))
+                    role=api.ROLES[bot]
+                    if not role.handles_owner:
+                        owner_db=(Path('/home/ubuntu/qq-dsh/records') if role.model=='deepseek' else Path('/home/ubuntu/qq-codex/bridge/.private/records'))/'heart.sqlite3'
+                        deliver_due(owner_db,lambda msg:send(api.OWNER,msg))
                 try: event=events.get(timeout=0.5)
                 except queue.Empty: event=None
                 if event:
@@ -118,13 +129,19 @@ def start(service, api):
                         try: text=service.request(bot,'fetch_ptt_text',{'message_id':mid}).get('text','').strip() or text
                         except Exception: pass
                     intent=parse(text,int(photo))
-                    if intent and intent[0] in ('generate','edit'):
+                    quote=next((p.get('data',{}).get('id') for p in parts if p.get('type')=='reply'),None)
+                    if quote is not None and not photo and re.search(r'换成|改成|按这张|照这张|改一下|换个背景',text):
+                        intent=('previous',text)
+                    if intent and intent[0] in ('generate','edit','previous'):
                         try:
                             image_queue(user).submit(bot,mid,intent[1] or '按原图润色',kind=intent[0],
-                                                     message_id=mid if photo else None)
+                                                     message_id=mid if photo else quote if intent[0]=="previous" else None)
                             answer='好，我来画，画好了发你。'
-                        except ValueError:
-                            answer='这次没能排上画单，稍后再试。'
+                        except ValueError as exc:
+                            if str(exc)=='missing_image':
+                                answer='没找到那张图，把原图发我就能接着改。'
+                            else:
+                                answer='这次没能排上画单，稍后再试。'
                     elif intent and intent[0]=='status':
                         job=image_queue(user).latest(bot)
                         answer='你最近的画单状态是 '+job['status'] if job else '你还没有画单。'
@@ -134,7 +151,18 @@ def start(service, api):
                         turns=histories.setdefault(user,collections.deque(maxlen=12))
                         try:
                             name,_,port=api.ACCOUNTS[bot]
-                            answer=reply(name,api.ROLES[bot].model=="deepseek",turns,text,base)
+                            from heart_memory import safe_turn
+                            folder=base/user
+                            folder.mkdir(exist_ok=True,mode=0o700)
+                            notes=safe_turn(folder/'heart.sqlite3',text)
+                            context=list(turns)
+                            if notes and '操作结果' in notes[0]:
+                                turns.clear()
+                                answer=notes[0]['操作结果']
+                            else:
+                                if notes:
+                                    context.append({'role':'user','content':'这位好友过去说过的感受：'+json.dumps(notes,ensure_ascii=False)})
+                                answer=reply(name,api.ROLES[bot].model=="deepseek",context,text,base)
                             if not answer or api.OWNER in answer or re.search(r'/home/ubuntu|BEGIN PRIVATE KEY|Bearer [\w.-]{10,}|sk-[\w-]{12,}',answer):
                                 answer='这个涉及私人信息，我不能分享。'
                             turns.extend([{'role':'user','content':text},{'role':'assistant','content':answer}])

@@ -113,6 +113,14 @@ def main():
         result = prepare(client, wait=args.wait) if args.mode == 'prepare' else verify(client, args.wait)
     except Exception as exc:
         result = {'status': 'unavailable', 'error_type': type(exc).__name__}
+    if result.get('status') == 'online' and result.get('expected_account') is True:
+        try:
+            import sys
+            sys.path.insert(0, '/home/ubuntu/qq-codex/bridge')
+            from reconnect_push import heartbeat
+            result['catchup_scheduled'] = heartbeat(True)
+        except Exception as exc:
+            result['catchup_error_type'] = type(exc).__name__
     result['checked_at'] = datetime.now().astimezone().isoformat()
     print(json.dumps(result))
 
